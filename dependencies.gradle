@@ -35,8 +35,8 @@
  */
 
 dependencies {
-    // JOML - 矩阵和向量计算库
-    api('org.joml:joml:1.10.5')
+    // JOML - 矩阵和向量计算库（必须 shadow 打包，否则运行时找不到类）
+    shadowImplementation('org.joml:joml:1.10.5')
 
     // Runtime dependencies for testing
     runtimeOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.8.40-GTNH:dev")
