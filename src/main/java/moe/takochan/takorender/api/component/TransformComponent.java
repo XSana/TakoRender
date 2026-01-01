@@ -1,7 +1,6 @@
 package moe.takochan.takorender.api.component;
 
 import org.joml.Matrix4f;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import moe.takochan.takorender.api.ecs.Component;
@@ -12,6 +11,11 @@ import moe.takochan.takorender.api.ecs.Component;
  * <p>
  * TransformComponent 是 ECS 架构中最基础的组件之一，
  * 几乎所有需要空间定位的实体都需要此组件。
+ * </p>
+ *
+ * <p>
+ * <b>ECS 原则</b>: 此组件只存储数据，不包含任何逻辑。
+ * 矩阵计算由 {@link moe.takochan.takorender.api.system.TransformSystem} 处理。
  * </p>
  *
  * <p>
@@ -32,7 +36,7 @@ import moe.takochan.takorender.api.ecs.Component;
  * </p>
  *
  * <pre>
- * 
+ *
  * {
  *     &#64;code
  *     Entity entity = world.createEntity();
@@ -45,15 +49,18 @@ import moe.takochan.takorender.api.ecs.Component;
  */
 public class TransformComponent extends Component {
 
+    // 基础变换数据
     private final Vector3f position = new Vector3f(0, 0, 0);
     private final Vector3f rotation = new Vector3f(0, 0, 0);
     private final Vector3f scale = new Vector3f(1, 1, 1);
 
+    // 派生数据（由 TransformSystem 计算和更新）
     private final Matrix4f worldMatrix = new Matrix4f();
     private final Vector3f forward = new Vector3f(0, 0, -1);
     private final Vector3f up = new Vector3f(0, 1, 0);
     private final Vector3f right = new Vector3f(1, 0, 0);
 
+    // 脏标记
     private boolean dirty = true;
 
     /**
@@ -93,7 +100,7 @@ public class TransformComponent extends Component {
     }
 
     /**
-     * 获取位置向量（直接引用，修改需调用 markDirty）
+     * 获取位置向量（直接引用，修改后需调用 markDirty）
      *
      * @return 位置向量引用
      */
@@ -145,6 +152,15 @@ public class TransformComponent extends Component {
     }
 
     /**
+     * 获取旋转向量（直接引用，修改后需调用 markDirty）
+     *
+     * @return 旋转向量引用
+     */
+    public Vector3f getRotationRef() {
+        return rotation;
+    }
+
+    /**
      * 获取 Pitch 角度（度）
      *
      * @return Pitch 角度
@@ -193,6 +209,15 @@ public class TransformComponent extends Component {
     }
 
     /**
+     * 获取缩放向量（直接引用，修改后需调用 markDirty）
+     *
+     * @return 缩放向量引用
+     */
+    public Vector3f getScaleRef() {
+        return scale;
+    }
+
+    /**
      * 设置统一缩放
      *
      * @param scale 缩放值
@@ -231,91 +256,63 @@ public class TransformComponent extends Component {
     }
 
     /**
-     * 清除脏标记（由 System 调用）
+     * 清除脏标记（由 TransformSystem 调用）
      */
     public void clearDirty() {
         this.dirty = false;
     }
 
     /**
-     * 获取世界变换矩阵
+     * 获取世界变换矩阵（直接引用）
      *
      * <p>
-     * 如果数据已变更，会自动重新计算矩阵。
+     * 注意：矩阵由 TransformSystem 负责计算和更新。
+     * 如果 isDirty() 为 true，矩阵可能未更新。
      * </p>
      *
-     * @return 世界变换矩阵
+     * @return 世界变换矩阵引用
      */
     public Matrix4f getWorldMatrix() {
-        if (dirty) {
-            updateMatrices();
-        }
         return worldMatrix;
     }
 
     /**
-     * 获取前向向量（-Z 方向，经过旋转）
+     * 获取前向向量（直接引用）
      *
-     * @return 前向向量
+     * <p>
+     * 注意：由 TransformSystem 负责计算和更新。
+     * </p>
+     *
+     * @return 前向向量引用
      */
     public Vector3f getForward() {
-        if (dirty) {
-            updateMatrices();
-        }
-        return new Vector3f(forward);
+        return forward;
     }
 
     /**
-     * 获取上方向量（+Y 方向，经过旋转）
+     * 获取上方向量（直接引用）
      *
-     * @return 上方向量
+     * <p>
+     * 注意：由 TransformSystem 负责计算和更新。
+     * </p>
+     *
+     * @return 上方向量引用
      */
     public Vector3f getUp() {
-        if (dirty) {
-            updateMatrices();
-        }
-        return new Vector3f(up);
+        return up;
     }
 
     /**
-     * 获取右向向量（+X 方向，经过旋转）
+     * 获取右向向量（直接引用）
      *
-     * @return 右向向量
+     * <p>
+     * 注意：由 TransformSystem 负责计算和更新。
+     * </p>
+     *
+     * @return 右向向量引用
      */
     public Vector3f getRight() {
-        if (dirty) {
-            updateMatrices();
-        }
-        return new Vector3f(right);
-    }
-
-    /**
-     * 更新变换矩阵和方向向量
-     */
-    private void updateMatrices() {
-        // 构建世界矩阵: Translation * Rotation * Scale
-        worldMatrix.identity()
-            .translate(position)
-            .rotateY((float) Math.toRadians(rotation.y))
-            .rotateX((float) Math.toRadians(rotation.x))
-            .rotateZ((float) Math.toRadians(rotation.z))
-            .scale(scale);
-
-        // 计算方向向量（基于旋转）
-        Quaternionf q = new Quaternionf().rotateY((float) Math.toRadians(rotation.y))
-            .rotateX((float) Math.toRadians(rotation.x))
-            .rotateZ((float) Math.toRadians(rotation.z));
-
-        forward.set(0, 0, -1);
-        q.transform(forward);
-
-        up.set(0, 1, 0);
-        q.transform(up);
-
-        right.set(1, 0, 0);
-        q.transform(right);
-
-        dirty = false;
+        return right;
     }
 
     /**
@@ -340,24 +337,5 @@ public class TransformComponent extends Component {
     public void rotate(float dPitch, float dYaw, float dRoll) {
         rotation.add(dPitch, dYaw, dRoll);
         markDirty();
-    }
-
-    /**
-     * 朝向目标点
-     *
-     * @param targetX 目标 X 坐标
-     * @param targetY 目标 Y 坐标
-     * @param targetZ 目标 Z 坐标
-     */
-    public void lookAt(float targetX, float targetY, float targetZ) {
-        float dx = targetX - position.x;
-        float dy = targetY - position.y;
-        float dz = targetZ - position.z;
-
-        float distXZ = (float) Math.sqrt(dx * dx + dz * dz);
-        float pitch = (float) Math.toDegrees(Math.atan2(-dy, distXZ));
-        float yaw = (float) Math.toDegrees(Math.atan2(dx, -dz));
-
-        setRotation(pitch, yaw, 0);
     }
 }

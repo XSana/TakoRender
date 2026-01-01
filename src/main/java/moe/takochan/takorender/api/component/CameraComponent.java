@@ -443,4 +443,28 @@ public class CameraComponent extends Component {
     public Matrix4f getViewProjectionMatrix() {
         return viewProjectionMatrix;
     }
+
+    /**
+     * 检查当前 FOV/Ortho 参数是否与 aspectRatio 一致
+     *
+     * <p>
+     * 用于验证宽高比变化后是否需要重新计算投影参数。
+     * </p>
+     *
+     * @return true 表示一致，false 表示需要调整
+     */
+    public boolean isAspectValid() {
+        final float epsilon = 1e-6f;
+        if (projectionType == ProjectionType.PERSPECTIVE) {
+            double vFovRad = Math.toRadians(vFov);
+            double hFovRad = 2.0 * Math.atan(Math.tan(vFovRad / 2.0) * aspectRatio);
+            double computedAspect = Math.tan(hFovRad / 2.0) / Math.tan(vFovRad / 2.0);
+            return Math.abs(computedAspect - aspectRatio) < epsilon;
+        } else {
+            float orthoWidth = orthoRight - orthoLeft;
+            float orthoHeight = orthoTop - orthoBottom;
+            float orthoAspect = orthoWidth / orthoHeight;
+            return Math.abs(orthoAspect - aspectRatio) < epsilon;
+        }
+    }
 }

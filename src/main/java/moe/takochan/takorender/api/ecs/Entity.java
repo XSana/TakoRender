@@ -48,10 +48,31 @@ public class Entity {
     /**
      * 添加 Component 到此实体。
      *
+     * <p>
+     * 会自动检查 {@link RequiresComponent} 注解声明的依赖，
+     * 如果缺少依赖的 Component 会抛出异常。
+     * </p>
+     *
      * @param component 要添加的 Component
      * @return 此实体（支持链式调用）
+     * @throws IllegalStateException 如果缺少依赖的 Component
      */
     public <T extends Component> Entity addComponent(T component) {
+        // 检查 @RequiresComponent 依赖
+        RequiresComponent requires = component.getClass()
+            .getAnnotation(RequiresComponent.class);
+        if (requires != null) {
+            for (Class<? extends Component> dep : requires.value()) {
+                if (!hasComponent(dep)) {
+                    throw new IllegalStateException(
+                        component.getClass()
+                            .getSimpleName() + " 需要先添加 "
+                            + dep.getSimpleName()
+                            + " 组件");
+                }
+            }
+        }
+
         Class<? extends Component> componentClass = component.getClass();
         components.put(componentClass, component);
         component.setEntity(this);

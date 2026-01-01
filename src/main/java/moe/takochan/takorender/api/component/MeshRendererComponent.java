@@ -2,6 +2,8 @@ package moe.takochan.takorender.api.component;
 
 import moe.takochan.takorender.api.ecs.Component;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
+import moe.takochan.takorender.api.graphics.Material;
+import moe.takochan.takorender.api.graphics.Mesh;
 
 /**
  * 网格渲染组件 - 存储网格渲染所需的数据
@@ -20,13 +22,15 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
  * </p>
  *
  * <pre>
- * 
+ *
  * {
  *     &#64;code
  *     Entity entity = world.createEntity();
  *     entity.addComponent(new TransformComponent(0, 64, 0));
  *     entity.addComponent(
- *         new MeshRendererComponent().setVisible(true)
+ *         new MeshRendererComponent().setMesh(cubeMesh)
+ *             .setMaterial(stoneMaterial)
+ *             .setVisible(true)
  *             .setCastShadows(true));
  * }
  * </pre>
@@ -34,6 +38,8 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
 @RequiresComponent(TransformComponent.class)
 public class MeshRendererComponent extends Component {
 
+    private Mesh mesh;
+    private Material material;
     private boolean visible = true;
     private int sortingOrder = 0;
     private boolean castShadows = true;
@@ -43,6 +49,65 @@ public class MeshRendererComponent extends Component {
      * 创建默认网格渲染组件
      */
     public MeshRendererComponent() {}
+
+    /**
+     * 获取网格
+     *
+     * @return 网格，可能为 null
+     */
+    public Mesh getMesh() {
+        return mesh;
+    }
+
+    /**
+     * 设置网格
+     *
+     * @param mesh 网格
+     * @return this（链式调用）
+     */
+    public MeshRendererComponent setMesh(Mesh mesh) {
+        this.mesh = mesh;
+        return this;
+    }
+
+    /**
+     * 获取材质
+     *
+     * @return 材质，可能为 null
+     */
+    public Material getMaterial() {
+        return material;
+    }
+
+    /**
+     * 设置材质
+     *
+     * @param material 材质
+     * @return this（链式调用）
+     */
+    public MeshRendererComponent setMaterial(Material material) {
+        this.material = material;
+        return this;
+    }
+
+    /**
+     * 获取材质实例（独立副本）
+     *
+     * <p>
+     * 如果需要修改材质参数而不影响其他使用相同材质的组件，
+     * 应该使用此方法获取独立副本。
+     * </p>
+     *
+     * @return 材质的独立副本，如果材质为 null 则返回 null
+     */
+    public Material getMaterialInstance() {
+        if (material == null) {
+            return null;
+        }
+        Material instance = material.instantiate();
+        this.material = instance;
+        return instance;
+    }
 
     /**
      * 检查是否可见
