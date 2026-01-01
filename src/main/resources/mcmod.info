@@ -1,0 +1,18 @@
+[
+  {
+    "modid": "takorender",
+    "name": "TakoRender",
+    "description": "Modern ECS-based rendering framework for Minecraft 1.7.10",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "",
+    "updateUrl": "",
+    "authorList": [
+      "TakoChan"
+    ],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": []
+  }
+]
