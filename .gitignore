@@ -40,3 +40,9 @@ layout.json
 /CLAUDE.md
 /src/main/resources/rebel.xml
 /.claude/
+
+# ECS 设计文档（本地工作文档，不提交）
+/docs/ecs/
+/docs/modules/
+/docs/ECS_REFACTORING_INDEX.md
+/docs/GL_STATE_MANAGEMENT_DECISION.md

@@ -1,21 +1,29 @@
 package moe.takochan.takorender.api.ecs;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
- * Basic Entity implementation for the ECS framework.
- * An Entity is a container for components and represents a game object.
+ * ECS 实体类
+ *
+ * <p>
+ * Entity 是 Component 的容器，本身只是一个 ID。
+ * 所有逻辑都在 System 中处理，Entity 只负责持有 Component。
+ * </p>
  */
 public class Entity {
 
     private final long id;
     private final Map<Class<? extends Component>, Component> components = new HashMap<>();
     private boolean active = true;
+    private World world;
 
-    public Entity(long id) {
+    Entity(long id, World world) {
         this.id = id;
+        this.world = world;
     }
 
     public long getId() {
@@ -31,16 +39,32 @@ public class Entity {
     }
 
     /**
-     * Add a component to this entity.
+     * 获取此实体所属的 World。
+     */
+    public World getWorld() {
+        return world;
+    }
+
+    /**
+     * 添加 Component 到此实体。
+     *
+     * @param component 要添加的 Component
+     * @return 此实体（支持链式调用）
      */
     public <T extends Component> Entity addComponent(T component) {
-        components.put(component.getClass(), component);
+        Class<? extends Component> componentClass = component.getClass();
+        components.put(componentClass, component);
         component.setEntity(this);
+
+        // 通知 World 更新索引
+        if (world != null) {
+            world.onComponentAdded(this, componentClass);
+        }
         return this;
     }
 
     /**
-     * Get a component from this entity.
+     * 获取指定类型的 Component。
      */
     @SuppressWarnings("unchecked")
     public <T extends Component> Optional<T> getComponent(Class<T> componentClass) {
@@ -48,16 +72,48 @@ public class Entity {
     }
 
     /**
-     * Check if this entity has a specific component.
+     * 检查是否拥有指定类型的 Component。
      */
     public <T extends Component> boolean hasComponent(Class<T> componentClass) {
         return components.containsKey(componentClass);
     }
 
     /**
-     * Remove a component from this entity.
+     * 检查是否拥有所有指定类型的 Component。
+     *
+     * @param componentClasses Component 类型数组
+     * @return 如果拥有全部指定的 Component 则返回 true
+     */
+    public boolean hasComponents(Class<?>... componentClasses) {
+        for (Class<?> clazz : componentClasses) {
+            if (!components.containsKey(clazz)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 从此实体移除 Component。
      */
     public <T extends Component> void removeComponent(Class<T> componentClass) {
-        components.remove(componentClass);
+        Component removed = components.remove(componentClass);
+        if (removed != null && world != null) {
+            world.onComponentRemoved(this, componentClass);
+        }
+    }
+
+    /**
+     * 获取此实体拥有的所有 Component 类型。
+     */
+    public Set<Class<? extends Component>> getComponentTypes() {
+        return components.keySet();
+    }
+
+    /**
+     * 获取此实体的所有 Component。
+     */
+    public Collection<Component> getComponents() {
+        return components.values();
     }
 }
