@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 
 import moe.takochan.takorender.api.ecs.Component;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
+import moe.takochan.takorender.api.graphics.RenderQueue;
 
 /**
  * 线条渲染组件 - 存储线条/线框渲染数据
@@ -59,6 +60,7 @@ public class LineRendererComponent extends Component {
     }
 
     private LineShape shape = LineShape.LINE;
+    private RenderQueue renderQueue = RenderQueue.OVERLAY;
 
     private final Vector3f startPoint = new Vector3f(0, 0, 0);
     private final Vector3f endPoint = new Vector3f(1, 1, 1);
@@ -94,6 +96,31 @@ public class LineRendererComponent extends Component {
      */
     public LineRendererComponent setShape(LineShape shape) {
         this.shape = shape;
+        return this;
+    }
+
+    /**
+     * 获取渲染队列
+     *
+     * @return 渲染队列（默认 OVERLAY）
+     */
+    public RenderQueue getRenderQueue() {
+        return renderQueue;
+    }
+
+    /**
+     * 设置渲染队列
+     *
+     * <p>
+     * 线条默认在 OVERLAY 层渲染（始终可见）。
+     * 设置为 OPAQUE 或 TRANSPARENT 可使其参与正常深度排序。
+     * </p>
+     *
+     * @param renderQueue 渲染队列
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setRenderQueue(RenderQueue renderQueue) {
+        this.renderQueue = renderQueue != null ? renderQueue : RenderQueue.OVERLAY;
         return this;
     }
 

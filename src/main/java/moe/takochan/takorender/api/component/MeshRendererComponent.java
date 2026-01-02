@@ -4,6 +4,7 @@ import moe.takochan.takorender.api.ecs.Component;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.graphics.Material;
 import moe.takochan.takorender.api.graphics.Mesh;
+import moe.takochan.takorender.api.graphics.RenderQueue;
 
 /**
  * 网格渲染组件 - 存储网格渲染所需的数据
@@ -41,6 +42,7 @@ public class MeshRendererComponent extends Component {
     private Mesh mesh;
     private Material material;
     private boolean visible = true;
+    private RenderQueue renderQueue = RenderQueue.OPAQUE;
     private int sortingOrder = 0;
     private boolean castShadows = true;
     private boolean receiveShadows = true;
@@ -128,10 +130,40 @@ public class MeshRendererComponent extends Component {
     }
 
     /**
+     * 获取渲染队列
+     *
+     * <p>
+     * 渲染队列决定物体的渲染顺序层级。
+     * </p>
+     *
+     * @return 渲染队列
+     * @see RenderQueue
+     */
+    public RenderQueue getRenderQueue() {
+        return renderQueue;
+    }
+
+    /**
+     * 设置渲染队列
+     *
+     * <p>
+     * 不同队列的渲染顺序：BACKGROUND → OPAQUE → TRANSPARENT → OVERLAY
+     * </p>
+     *
+     * @param renderQueue 渲染队列
+     * @return this（链式调用）
+     * @see RenderQueue
+     */
+    public MeshRendererComponent setRenderQueue(RenderQueue renderQueue) {
+        this.renderQueue = renderQueue != null ? renderQueue : RenderQueue.OPAQUE;
+        return this;
+    }
+
+    /**
      * 获取排序顺序
      *
      * <p>
-     * 值越小越先渲染。相同材质的物体会被批量渲染。
+     * 在同一渲染队列内，值越小越先渲染。
      * </p>
      */
     public int getSortingOrder() {
@@ -140,6 +172,10 @@ public class MeshRendererComponent extends Component {
 
     /**
      * 设置排序顺序
+     *
+     * <p>
+     * 在同一渲染队列内控制渲染顺序。
+     * </p>
      *
      * @param sortingOrder 排序顺序
      * @return this（链式调用）
