@@ -135,8 +135,8 @@ public class ParticleEmitter {
     /** 子发射器列表 */
     private final List<SubEmitterEntry> subEmitters = new ArrayList<>();
 
-    /** 纹理和渲染参数 */
-    private int textureId = 0;
+    /** 纹理资源键（格式：domain:path） */
+    private String textureKey;
     private int particleType = 0;
     private boolean textureAnimationEnabled = false;
     private int textureTilesX = 1, textureTilesY = 1;
@@ -588,9 +588,17 @@ public class ParticleEmitter {
 
     // ==================== 纹理/渲染设置 ====================
 
-    public ParticleEmitter setTexture(int textureId) {
-        this.textureId = textureId;
+    public ParticleEmitter setTexture(String textureKey) {
+        this.textureKey = textureKey;
         return this;
+    }
+
+    public String getTextureKey() {
+        return textureKey;
+    }
+
+    public boolean hasTexture() {
+        return textureKey != null && !textureKey.isEmpty();
     }
 
     public ParticleEmitter setParticleType(int type) {
@@ -604,10 +612,6 @@ public class ParticleEmitter {
         this.textureTilesY = tilesY;
         this.textureAnimationFps = fps;
         return this;
-    }
-
-    public int getTextureId() {
-        return textureId;
     }
 
     public int getParticleType() {

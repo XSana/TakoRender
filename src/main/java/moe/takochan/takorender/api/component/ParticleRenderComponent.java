@@ -22,8 +22,8 @@ public class ParticleRenderComponent extends Component {
     /** 渲染模式 */
     private RenderMode renderMode = RenderMode.BILLBOARD_QUAD;
 
-    /** 纹理 ID */
-    private int textureId;
+    /** 纹理资源键（格式：domain:path，如 "takorender:particle/fire"） */
+    private String textureKey;
 
     /** 纹理动画 - 水平分块数 */
     private int textureTilesX = 1;
@@ -82,13 +82,17 @@ public class ParticleRenderComponent extends Component {
 
     // ==================== 纹理 ====================
 
-    public int getTextureId() {
-        return textureId;
+    public String getTextureKey() {
+        return textureKey;
     }
 
-    public ParticleRenderComponent setTextureId(int textureId) {
-        this.textureId = textureId;
+    public ParticleRenderComponent setTexture(String textureKey) {
+        this.textureKey = textureKey;
         return this;
+    }
+
+    public boolean hasTexture() {
+        return textureKey != null && !textureKey.isEmpty();
     }
 
     public int getTextureTilesX() {

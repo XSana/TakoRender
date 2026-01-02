@@ -9,10 +9,12 @@ import org.lwjgl.opengl.GL20;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.api.graphics.mesh.DynamicMesh;
 import moe.takochan.takorender.api.graphics.mesh.VertexAttribute;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
-import moe.takochan.takorender.api.graphics.shader.ShaderType;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.ShaderManager;
 import moe.takochan.takorender.core.gl.GLStateContext;
 
 /**
@@ -64,6 +66,8 @@ public class World3DBatchLit implements AutoCloseable {
     private static final int FLOATS_PER_VERTEX = 12;
     /** 默认最大顶点数 */
     private static final int DEFAULT_MAX_VERTICES = 8192;
+    /** Shader 资源键 */
+    private static final String SHADER_KEY = Reference.MODID + ":core/world3d_lit";
 
     /**
      * 顶点格式: 位置(3) + 颜色(4) + 光照坐标(2) + 法线(3)
@@ -117,6 +121,9 @@ public class World3DBatchLit implements AutoCloseable {
 
     /** 光照强度乘数（默认 1.0） */
     private float lightIntensity = 1.0f;
+
+    /** Shader 资源句柄 */
+    private ResourceHandle<ShaderProgram> shaderHandle = null;
 
     /** 最小亮度下限（默认 0.1） */
     private float minBrightness = 0.1f;
@@ -444,7 +451,7 @@ public class World3DBatchLit implements AutoCloseable {
 
         mesh.updateData(vertexData, vertexOffset, indexData, indexOffset);
 
-        ShaderProgram shader = ShaderType.WORLD_3D_LIT.get();
+        ShaderProgram shader = getShader();
         if (shader == null || !shader.isValid()) return;
 
         shader.use();
@@ -471,6 +478,17 @@ public class World3DBatchLit implements AutoCloseable {
         vertexOffset = 0;
         indexOffset = 0;
         vertexCount = 0;
+    }
+
+    /**
+     * 获取 Shader（延迟加载）
+     */
+    private ShaderProgram getShader() {
+        if (shaderHandle == null || !shaderHandle.isValid()) {
+            shaderHandle = ShaderManager.instance()
+                .get(SHADER_KEY);
+        }
+        return shaderHandle != null ? shaderHandle.get() : null;
     }
 
     /**
@@ -504,6 +522,10 @@ public class World3DBatchLit implements AutoCloseable {
             if (glStateContext != null) {
                 glStateContext.close();
                 glStateContext = null;
+            }
+            if (shaderHandle != null) {
+                shaderHandle.release();
+                shaderHandle = null;
             }
             drawing = false;
             mesh.close();

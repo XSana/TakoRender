@@ -9,6 +9,8 @@ import org.lwjgl.opengl.GL13;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.TextureManager;
 
 /**
  * 标准材质实现
@@ -52,11 +54,15 @@ public class StandardMaterial implements Material {
     /** 动态属性容器 */
     private final Map<String, Object> properties = new HashMap<>();
 
-    /** 主纹理 ID */
-    private int textureId = 0;
+    /** 主纹理资源键 */
+    private String textureKey;
 
-    /** 法线贴图 ID */
-    private int normalMapId = 0;
+    /** 法线贴图资源键 */
+    private String normalMapKey;
+
+    /** 纹理句柄缓存 */
+    private transient ResourceHandle<Integer> textureHandle;
+    private transient ResourceHandle<Integer> normalMapHandle;
 
     /** 基础颜色 RGBA */
     private float colorR = 1.0f;
@@ -191,12 +197,17 @@ public class StandardMaterial implements Material {
     /**
      * 设置主纹理
      *
-     * @param textureId OpenGL 纹理 ID
+     * @param textureKey 纹理资源键（格式：domain:path，如 "takorender:particle/fire"）
      * @return this（链式调用）
      */
-    public StandardMaterial setTexture(int textureId) {
-        this.textureId = textureId;
-        if (textureId > 0) {
+    public StandardMaterial setTexture(String textureKey) {
+        // 释放旧句柄
+        if (this.textureHandle != null) {
+            this.textureHandle.release();
+            this.textureHandle = null;
+        }
+        this.textureKey = textureKey;
+        if (textureKey != null && !textureKey.isEmpty()) {
             this.renderMode = RenderMode.TEXTURE;
         }
         return this;
@@ -205,12 +216,31 @@ public class StandardMaterial implements Material {
     /**
      * 设置法线贴图
      *
-     * @param normalMapId OpenGL 纹理 ID
+     * @param normalMapKey 法线贴图资源键
      * @return this（链式调用）
      */
-    public StandardMaterial setNormalMap(int normalMapId) {
-        this.normalMapId = normalMapId;
+    public StandardMaterial setNormalMap(String normalMapKey) {
+        // 释放旧句柄
+        if (this.normalMapHandle != null) {
+            this.normalMapHandle.release();
+            this.normalMapHandle = null;
+        }
+        this.normalMapKey = normalMapKey;
         return this;
+    }
+
+    /**
+     * 检查是否有纹理
+     */
+    public boolean hasTexture() {
+        return textureKey != null && !textureKey.isEmpty();
+    }
+
+    /**
+     * 检查是否有法线贴图
+     */
+    public boolean hasNormalMap() {
+        return normalMapKey != null && !normalMapKey.isEmpty();
     }
 
     /**
@@ -264,7 +294,8 @@ public class StandardMaterial implements Material {
 
         shader.use();
 
-        // 绑定纹理
+        // 绑定主纹理（通过 TextureManager 延迟加载）
+        int textureId = getTextureId();
         if (textureId > 0) {
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
@@ -274,6 +305,8 @@ public class StandardMaterial implements Material {
             shader.setUniformBool("uHasTexture", false);
         }
 
+        // 绑定法线贴图
+        int normalMapId = getNormalMapId();
         if (normalMapId > 0) {
             GL13.glActiveTexture(GL13.GL_TEXTURE1);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, normalMapId);
@@ -335,8 +368,8 @@ public class StandardMaterial implements Material {
         StandardMaterial copy = new StandardMaterial(shader);
         copy.renderMode = this.renderMode;
         copy.transparent = this.transparent;
-        copy.textureId = this.textureId;
-        copy.normalMapId = this.normalMapId;
+        copy.textureKey = this.textureKey;
+        copy.normalMapKey = this.normalMapKey;
         copy.colorR = this.colorR;
         copy.colorG = this.colorG;
         copy.colorB = this.colorB;
@@ -356,6 +389,20 @@ public class StandardMaterial implements Material {
         }
 
         return copy;
+    }
+
+    /**
+     * 释放纹理资源
+     */
+    public void dispose() {
+        if (textureHandle != null) {
+            textureHandle.release();
+            textureHandle = null;
+        }
+        if (normalMapHandle != null) {
+            normalMapHandle.release();
+            normalMapHandle = null;
+        }
     }
 
     // ==================== Getter ====================
@@ -388,12 +435,40 @@ public class StandardMaterial implements Material {
         return emissive;
     }
 
-    public int getTextureId() {
-        return textureId;
+    public String getTextureKey() {
+        return textureKey;
     }
 
+    public String getNormalMapKey() {
+        return normalMapKey;
+    }
+
+    /**
+     * 获取纹理 ID（延迟加载）
+     */
+    public int getTextureId() {
+        if (textureKey == null || textureKey.isEmpty()) {
+            return 0;
+        }
+        if (textureHandle == null || !textureHandle.isValid()) {
+            textureHandle = TextureManager.instance()
+                .get(textureKey);
+        }
+        return textureHandle != null && textureHandle.isValid() ? textureHandle.get() : 0;
+    }
+
+    /**
+     * 获取法线贴图 ID（延迟加载）
+     */
     public int getNormalMapId() {
-        return normalMapId;
+        if (normalMapKey == null || normalMapKey.isEmpty()) {
+            return 0;
+        }
+        if (normalMapHandle == null || !normalMapHandle.isValid()) {
+            normalMapHandle = TextureManager.instance()
+                .get(normalMapKey);
+        }
+        return normalMapHandle != null && normalMapHandle.isValid() ? normalMapHandle.get() : 0;
     }
 
     @Override

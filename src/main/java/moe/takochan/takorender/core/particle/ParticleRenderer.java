@@ -16,8 +16,11 @@ import org.lwjgl.opengl.GL33;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.ShaderManager;
 import moe.takochan.takorender.core.gl.GLStateContext;
 
 /**
@@ -38,6 +41,10 @@ import moe.takochan.takorender.core.gl.GLStateContext;
  */
 @SideOnly(Side.CLIENT)
 public class ParticleRenderer {
+
+    /** Shader 资源键 */
+    private static final String SHADER_PARTICLE = Reference.MODID + ":particle/particle";
+    private static final String SHADER_PARTICLE_MESH = Reference.MODID + ":particle/particle_mesh";
 
     /** 渲染模式 */
     public enum RenderMode {
@@ -75,8 +82,14 @@ public class ParticleRenderer {
         PREMULTIPLIED
     }
 
-    /** 渲染着色器 */
-    private ShaderProgram shader;
+    /** 渲染着色器句柄 */
+    private ResourceHandle<ShaderProgram> shaderHandle;
+
+    /** 回退着色器（当主 shader 加载失败时使用） */
+    private ShaderProgram fallbackShader;
+
+    /** 当前激活的着色器（setUniform 使用） */
+    private ShaderProgram currentShader;
 
     /** VAO */
     private int vao;
@@ -144,8 +157,8 @@ public class ParticleRenderer {
     /** Mesh 索引数量 */
     private int meshIndexCount = 0;
 
-    /** Mesh 着色器 */
-    private ShaderProgram meshShader;
+    /** Mesh 着色器句柄 */
+    private ResourceHandle<ShaderProgram> meshShaderHandle;
 
     /** 当前内置 Mesh 类型 */
     private BuiltinMesh currentBuiltinMesh = null;
@@ -202,18 +215,18 @@ public class ParticleRenderer {
 
             GL30.glBindVertexArray(0);
 
-            // 加载着色器
-            shader = new ShaderProgram(
-                "takorender",
-                "shaders/particle/particle.vert",
-                "shaders/particle/particle.frag");
+            // 加载着色器（通过 ShaderManager）
+            shaderHandle = ShaderManager.instance()
+                .get(SHADER_PARTICLE);
 
-            if (!shader.isValid()) {
+            if (shaderHandle == null || !shaderHandle.isValid()
+                || !shaderHandle.get()
+                    .isValid()) {
                 TakoRenderMod.LOG.warn("ParticleRenderer: Failed to load shader, using fallback");
-                shader = createFallbackShader();
+                fallbackShader = createFallbackShader();
             }
 
-            if (shader == null || !shader.isValid()) {
+            if (getShader() == null) {
                 TakoRenderMod.LOG.error("ParticleRenderer: Failed to initialize shader");
                 return false;
             }
@@ -234,6 +247,29 @@ public class ParticleRenderer {
      */
     public boolean isInitialized() {
         return initialized;
+    }
+
+    /**
+     * 获取当前着色器（优先使用 ShaderManager 加载的，否则使用回退）
+     */
+    private ShaderProgram getShader() {
+        if (shaderHandle != null && shaderHandle.isValid()) {
+            ShaderProgram s = shaderHandle.get();
+            if (s != null && s.isValid()) {
+                return s;
+            }
+        }
+        return fallbackShader;
+    }
+
+    /**
+     * 获取 Mesh 着色器
+     */
+    private ShaderProgram getMeshShader() {
+        if (meshShaderHandle != null && meshShaderHandle.isValid()) {
+            return meshShaderHandle.get();
+        }
+        return null;
     }
 
     /**
@@ -273,6 +309,7 @@ public class ParticleRenderer {
             return;
         }
 
+        ShaderProgram shader = getShader();
         if (shader == null) {
             return;
         }
@@ -281,6 +318,7 @@ public class ParticleRenderer {
             // 设置渲染状态
             setupRenderState(ctx);
 
+            currentShader = shader;
             shader.use();
 
             // 设置矩阵 uniform
@@ -365,6 +403,7 @@ public class ParticleRenderer {
             return;
         }
 
+        ShaderProgram shader = getShader();
         if (shader == null) {
             return;
         }
@@ -381,6 +420,7 @@ public class ParticleRenderer {
         try (var ctx = GLStateContext.begin()) {
             setupRenderState(ctx);
 
+            currentShader = shader;
             shader.use();
 
             // 设置 uniform（与 GPU 渲染相同）
@@ -510,18 +550,21 @@ public class ParticleRenderer {
             return;
         }
 
-        // 懒加载 Mesh 着色器
-        if (meshShader == null) {
-            meshShader = new ShaderProgram(
-                "takorender",
-                "shaders/particle/particle_mesh.vert",
-                "shaders/particle/particle_mesh.frag");
-            if (!meshShader.isValid()) {
+        // 懒加载 Mesh 着色器（通过 ShaderManager）
+        if (meshShaderHandle == null || !meshShaderHandle.isValid()) {
+            meshShaderHandle = ShaderManager.instance()
+                .get(SHADER_PARTICLE_MESH);
+            if (meshShaderHandle == null || !meshShaderHandle.isValid()) {
                 TakoRenderMod.LOG.error("ParticleRenderer: Failed to load mesh shader");
                 return;
             }
             // 配置实例属性
             setupMeshInstancedAttributes(buffer.getSsboId());
+        }
+
+        ShaderProgram meshShader = getMeshShader();
+        if (meshShader == null || !meshShader.isValid()) {
+            return;
         }
 
         try (var ctx = GLStateContext.begin()) {
@@ -557,8 +600,9 @@ public class ParticleRenderer {
 
     /** 设置 Mesh shader 的 mat4 uniform */
     private void setMeshUniformMatrix4(String name, float[] matrix) {
-        if (meshShader == null) return;
-        int location = GL20.glGetUniformLocation(meshShader.getProgram(), name);
+        ShaderProgram shader = getMeshShader();
+        if (shader == null) return;
+        int location = GL20.glGetUniformLocation(shader.getProgram(), name);
         if (location >= 0) {
             FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
             buffer.put(matrix)
@@ -569,8 +613,9 @@ public class ParticleRenderer {
 
     /** 设置 Mesh shader 的 vec3 uniform */
     private void setMeshUniform(String name, float x, float y, float z) {
-        if (meshShader == null) return;
-        int location = GL20.glGetUniformLocation(meshShader.getProgram(), name);
+        ShaderProgram shader = getMeshShader();
+        if (shader == null) return;
+        int location = GL20.glGetUniformLocation(shader.getProgram(), name);
         if (location >= 0) {
             GL20.glUniform3f(location, x, y, z);
         }
@@ -810,9 +855,9 @@ public class ParticleRenderer {
             GL15.glDeleteBuffers(meshEbo);
             meshEbo = 0;
         }
-        if (meshShader != null) {
-            meshShader.close();
-            meshShader = null;
+        if (meshShaderHandle != null) {
+            meshShaderHandle.release();
+            meshShaderHandle = null;
         }
         meshVertexCount = 0;
         meshIndexCount = 0;
@@ -836,9 +881,13 @@ public class ParticleRenderer {
             cpuParticleVbo = 0;
             cpuParticleVboCapacity = 0;
         }
-        if (shader != null) {
-            shader.close();
-            shader = null;
+        if (shaderHandle != null) {
+            shaderHandle.release();
+            shaderHandle = null;
+        }
+        if (fallbackShader != null) {
+            fallbackShader.close();
+            fallbackShader = null;
         }
         cleanupMesh();
         initialized = false;
@@ -877,7 +926,8 @@ public class ParticleRenderer {
      * 设置 float uniform
      */
     private void setUniform(String name, float value) {
-        int location = GL20.glGetUniformLocation(shader.getProgram(), name);
+        if (currentShader == null) return;
+        int location = GL20.glGetUniformLocation(currentShader.getProgram(), name);
         if (location >= 0) {
             GL20.glUniform1f(location, value);
         }
@@ -887,7 +937,8 @@ public class ParticleRenderer {
      * 设置 int uniform
      */
     private void setUniform(String name, int value) {
-        int location = GL20.glGetUniformLocation(shader.getProgram(), name);
+        if (currentShader == null) return;
+        int location = GL20.glGetUniformLocation(currentShader.getProgram(), name);
         if (location >= 0) {
             GL20.glUniform1i(location, value);
         }
@@ -897,7 +948,8 @@ public class ParticleRenderer {
      * 设置 vec3 uniform
      */
     private void setUniform(String name, float x, float y, float z) {
-        int location = GL20.glGetUniformLocation(shader.getProgram(), name);
+        if (currentShader == null) return;
+        int location = GL20.glGetUniformLocation(currentShader.getProgram(), name);
         if (location >= 0) {
             GL20.glUniform3f(location, x, y, z);
         }
@@ -907,7 +959,8 @@ public class ParticleRenderer {
      * 设置 mat4 uniform
      */
     private void setUniformMatrix4(String name, float[] matrix) {
-        int location = GL20.glGetUniformLocation(shader.getProgram(), name);
+        if (currentShader == null) return;
+        int location = GL20.glGetUniformLocation(currentShader.getProgram(), name);
         if (location >= 0) {
             FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
             buffer.put(matrix)

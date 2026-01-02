@@ -8,10 +8,12 @@ import org.lwjgl.opengl.GL20;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.api.graphics.mesh.DynamicMesh;
 import moe.takochan.takorender.api.graphics.mesh.VertexFormat;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
-import moe.takochan.takorender.api.graphics.shader.ShaderType;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.ShaderManager;
 import moe.takochan.takorender.core.gl.GLStateContext;
 
 /**
@@ -58,6 +60,8 @@ public class SpriteBatch implements AutoCloseable {
     private static final int INDICES_PER_QUAD = 6;
     /** 默认最大四边形数量 */
     private static final int DEFAULT_MAX_QUADS = 256;
+    /** Shader 资源键 */
+    private static final String SHADER_KEY = Reference.MODID + ":core/gui_color";
 
     private final int maxQuads;
     private final DynamicMesh mesh;
@@ -86,6 +90,9 @@ public class SpriteBatch implements AutoCloseable {
 
     /** GL 状态上下文（用于自动状态管理） */
     private GLStateContext glStateContext = null;
+
+    /** Shader 资源句柄 */
+    private ResourceHandle<ShaderProgram> shaderHandle = null;
 
     /**
      * 使用默认容量创建 SpriteBatch
@@ -259,7 +266,7 @@ public class SpriteBatch implements AutoCloseable {
 
         mesh.updateData(vertexData, vertexOffset, indexData, indexOffset);
 
-        ShaderProgram shader = ShaderType.GUI_COLOR.get();
+        ShaderProgram shader = getShader();
         if (shader == null || !shader.isValid()) {
             vertexOffset = 0;
             indexOffset = 0;
@@ -278,6 +285,17 @@ public class SpriteBatch implements AutoCloseable {
         vertexOffset = 0;
         indexOffset = 0;
         quadCount = 0;
+    }
+
+    /**
+     * 获取 Shader（延迟加载）
+     */
+    private ShaderProgram getShader() {
+        if (shaderHandle == null || !shaderHandle.isValid()) {
+            shaderHandle = ShaderManager.instance()
+                .get(SHADER_KEY);
+        }
+        return shaderHandle != null ? shaderHandle.get() : null;
     }
 
     /**
@@ -342,6 +360,10 @@ public class SpriteBatch implements AutoCloseable {
             if (glStateContext != null) {
                 glStateContext.close();
                 glStateContext = null;
+            }
+            if (shaderHandle != null) {
+                shaderHandle.release();
+                shaderHandle = null;
             }
             drawing = false;
             mesh.close();

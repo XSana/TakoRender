@@ -9,6 +9,7 @@ import org.lwjgl.opengl.GL20;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
 import moe.takochan.takorender.api.particle.AnimationCurve;
@@ -18,6 +19,8 @@ import moe.takochan.takorender.api.particle.ParticleEmitter;
 import moe.takochan.takorender.api.particle.ParticleForce;
 import moe.takochan.takorender.api.particle.RotationOverLifetime;
 import moe.takochan.takorender.api.particle.VelocityOverLifetime;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.ShaderManager;
 
 /**
  * 粒子计算着色器调度器
@@ -29,11 +32,19 @@ import moe.takochan.takorender.api.particle.VelocityOverLifetime;
 @SideOnly(Side.CLIENT)
 public class ParticleCompute {
 
-    /** 粒子更新着色器 */
-    private ShaderProgram updateShader;
+    /** Shader 资源键 */
+    private static final String SHADER_UPDATE = Reference.MODID + ":particle/particle_update:compute";
+    private static final String SHADER_EMIT = Reference.MODID + ":particle/particle_emit:compute";
 
-    /** 粒子发射着色器 */
-    private ShaderProgram emitShader;
+    /** 粒子更新着色器句柄 */
+    private ResourceHandle<ShaderProgram> updateShaderHandle;
+
+    /** 粒子发射着色器句柄 */
+    private ResourceHandle<ShaderProgram> emitShaderHandle;
+
+    /** 回退着色器（当主 shader 加载失败时使用） */
+    private ShaderProgram fallbackUpdateShader;
+    private ShaderProgram fallbackEmitShader;
 
     /** 工作组大小 */
     private static final int WORK_GROUP_SIZE = 256;
@@ -80,19 +91,27 @@ public class ParticleCompute {
         }
 
         try {
-            updateShader = ShaderProgram.createCompute("takorender", "shaders/particle/particle_update.comp");
-            if (updateShader == null || !updateShader.isValid()) {
+            // 加载更新着色器（通过 ShaderManager）
+            updateShaderHandle = ShaderManager.instance()
+                .get(SHADER_UPDATE);
+            if (updateShaderHandle == null || !updateShaderHandle.isValid()
+                || !updateShaderHandle.get()
+                    .isValid()) {
                 TakoRenderMod.LOG.warn("ParticleCompute: Failed to create update shader, using fallback");
-                updateShader = createFallbackUpdateShader();
+                fallbackUpdateShader = createFallbackUpdateShader();
             }
 
-            emitShader = ShaderProgram.createCompute("takorender", "shaders/particle/particle_emit.comp");
-            if (emitShader == null || !emitShader.isValid()) {
+            // 加载发射着色器（通过 ShaderManager）
+            emitShaderHandle = ShaderManager.instance()
+                .get(SHADER_EMIT);
+            if (emitShaderHandle == null || !emitShaderHandle.isValid()
+                || !emitShaderHandle.get()
+                    .isValid()) {
                 TakoRenderMod.LOG.warn("ParticleCompute: Failed to create emit shader, using fallback");
-                emitShader = createFallbackEmitShader();
+                fallbackEmitShader = createFallbackEmitShader();
             }
 
-            if (updateShader == null || !updateShader.isValid() || emitShader == null || !emitShader.isValid()) {
+            if (getUpdateShader() == null || getEmitShader() == null) {
                 TakoRenderMod.LOG.error("ParticleCompute: Failed to initialize compute shaders");
                 return false;
             }
@@ -112,12 +131,39 @@ public class ParticleCompute {
     }
 
     /**
+     * 获取更新着色器（优先使用 ShaderManager 加载的，否则使用回退）
+     */
+    private ShaderProgram getUpdateShader() {
+        if (updateShaderHandle != null && updateShaderHandle.isValid()) {
+            ShaderProgram s = updateShaderHandle.get();
+            if (s != null && s.isValid()) {
+                return s;
+            }
+        }
+        return fallbackUpdateShader;
+    }
+
+    /**
+     * 获取发射着色器（优先使用 ShaderManager 加载的，否则使用回退）
+     */
+    private ShaderProgram getEmitShader() {
+        if (emitShaderHandle != null && emitShaderHandle.isValid()) {
+            ShaderProgram s = emitShaderHandle.get();
+            if (s != null && s.isValid()) {
+                return s;
+            }
+        }
+        return fallbackEmitShader;
+    }
+
+    /**
      * 调度粒子更新
      */
     public void dispatchUpdate(ParticleBuffer buffer, float deltaTime, List<ParticleForce> forces,
         CollisionMode collisionMode, CollisionResponse collisionResponse, float bounciness, float bounceChance,
         float bounceSpread) {
 
+        ShaderProgram updateShader = getUpdateShader();
         if (!initialized || updateShader == null) {
             return;
         }
@@ -264,6 +310,7 @@ public class ParticleCompute {
         float boxMaxZ, VelocityOverLifetime velocityOverLife, RotationOverLifetime rotationOverLife,
         int maxDeadParticles) {
 
+        ShaderProgram updateShader = getUpdateShader();
         if (!initialized || updateShader == null) {
             return;
         }
@@ -380,6 +427,7 @@ public class ParticleCompute {
      * 发射新粒子（使用 compute shader）
      */
     public void dispatchEmit(ParticleBuffer buffer, ParticleEmitter emitter, int count, float baseTime) {
+        ShaderProgram emitShader = getEmitShader();
         if (!initialized || emitShader == null || count <= 0) {
             return;
         }
@@ -426,13 +474,21 @@ public class ParticleCompute {
      * 清理资源
      */
     public void cleanup() {
-        if (updateShader != null) {
-            updateShader.close();
-            updateShader = null;
+        if (updateShaderHandle != null) {
+            updateShaderHandle.release();
+            updateShaderHandle = null;
         }
-        if (emitShader != null) {
-            emitShader.close();
-            emitShader = null;
+        if (emitShaderHandle != null) {
+            emitShaderHandle.release();
+            emitShaderHandle = null;
+        }
+        if (fallbackUpdateShader != null) {
+            fallbackUpdateShader.close();
+            fallbackUpdateShader = null;
+        }
+        if (fallbackEmitShader != null) {
+            fallbackEmitShader.close();
+            fallbackEmitShader = null;
         }
         initialized = false;
     }

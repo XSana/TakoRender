@@ -26,6 +26,8 @@ import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.particle.BlendMode;
 import moe.takochan.takorender.api.particle.RenderMode;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.TextureManager;
 import moe.takochan.takorender.core.particle.ParticleBuffer;
 import moe.takochan.takorender.core.particle.ParticleCPU;
 import moe.takochan.takorender.core.particle.ParticleRenderer;
@@ -148,7 +150,7 @@ public class ParticleRenderSystem extends GameSystem {
         int textureId = 0;
         if (renderComp != null) {
             configureRenderer(renderComp, transform, lightProbe);
-            textureId = renderComp.getTextureId();
+            textureId = getTextureId(renderComp.getTextureKey());
         }
 
         if (buffer.isUseCPUFallback()) {
@@ -305,6 +307,18 @@ public class ParticleRenderSystem extends GameSystem {
         }
 
         renderer.renderCPU(cpuBuffer, viewMatrix, projMatrix, cameraPos, textureId, state.getAliveCount());
+    }
+
+    /**
+     * 获取纹理 ID（通过 TextureManager 加载）
+     */
+    private int getTextureId(String textureKey) {
+        if (textureKey == null || textureKey.isEmpty()) {
+            return 0;
+        }
+        ResourceHandle<Integer> handle = TextureManager.instance()
+            .get(textureKey);
+        return handle != null && handle.isValid() ? handle.get() : 0;
     }
 
     private CameraComponent findActiveCamera() {

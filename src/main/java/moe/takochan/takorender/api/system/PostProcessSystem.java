@@ -13,13 +13,15 @@ import org.lwjgl.opengl.GL30;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.api.component.CameraComponent;
 import moe.takochan.takorender.api.component.PostProcessComponent;
 import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
-import moe.takochan.takorender.api.graphics.shader.ShaderType;
+import moe.takochan.takorender.api.resource.ResourceHandle;
+import moe.takochan.takorender.api.resource.ShaderManager;
 import moe.takochan.takorender.core.gl.FrameBuffer;
 import moe.takochan.takorender.core.gl.GLStateContext;
 
@@ -54,6 +56,11 @@ import moe.takochan.takorender.core.gl.GLStateContext;
  */
 @SideOnly(Side.CLIENT)
 public class PostProcessSystem extends GameSystem {
+
+    /** Shader 资源键 */
+    private static final String SHADER_BRIGHTNESS = Reference.MODID + ":postprocess/brightness_extract";
+    private static final String SHADER_BLUR = Reference.MODID + ":postprocess/blur";
+    private static final String SHADER_COMPOSITE = Reference.MODID + ":postprocess/composite";
 
     /** 场景渲染目标（全分辨率） */
     private FrameBuffer sceneFbo;
@@ -90,6 +97,11 @@ public class PostProcessSystem extends GameSystem {
 
     /** 保存的 MC 视口 */
     private final IntBuffer savedMcViewport = BufferUtils.createIntBuffer(16);
+
+    /** Shader 资源句柄 */
+    private ResourceHandle<ShaderProgram> brightnessShaderHandle;
+    private ResourceHandle<ShaderProgram> blurShaderHandle;
+    private ResourceHandle<ShaderProgram> compositeShaderHandle;
 
     @Override
     public Phase getPhase() {
@@ -177,6 +189,20 @@ public class PostProcessSystem extends GameSystem {
         if (quadEbo != 0) {
             GL15.glDeleteBuffers(quadEbo);
             quadEbo = 0;
+        }
+
+        // 释放 Shader 句柄
+        if (brightnessShaderHandle != null) {
+            brightnessShaderHandle.release();
+            brightnessShaderHandle = null;
+        }
+        if (blurShaderHandle != null) {
+            blurShaderHandle.release();
+            blurShaderHandle = null;
+        }
+        if (compositeShaderHandle != null) {
+            compositeShaderHandle.release();
+            compositeShaderHandle = null;
         }
 
         initialized = false;
@@ -309,7 +335,7 @@ public class PostProcessSystem extends GameSystem {
      * 亮度提取（sceneFbo -> brightFbo）
      */
     private void extractBrightness(PostProcessComponent config) {
-        ShaderProgram shader = ShaderType.POSTPROCESS_BRIGHTNESS.getOrNull();
+        ShaderProgram shader = getBrightnessShader();
         if (shader == null || !shader.isValid()) {
             return;
         }
@@ -334,7 +360,7 @@ public class PostProcessSystem extends GameSystem {
      * 高斯模糊 ping-pong（brightFbo -> blurFbo1/2）
      */
     private void gaussianBlur(PostProcessComponent config) {
-        ShaderProgram shader = ShaderType.POSTPROCESS_BLUR.getOrNull();
+        ShaderProgram shader = getBlurShader();
         if (shader == null || !shader.isValid()) {
             return;
         }
@@ -381,7 +407,7 @@ public class PostProcessSystem extends GameSystem {
      * 合成输出（sceneFbo + blurFbo -> screen）
      */
     private void composite(PostProcessComponent config) {
-        ShaderProgram shader = ShaderType.POSTPROCESS_COMPOSITE.getOrNull();
+        ShaderProgram shader = getCompositeShader();
         if (shader == null || !shader.isValid()) {
             return;
         }
@@ -523,5 +549,38 @@ public class PostProcessSystem extends GameSystem {
      */
     public boolean isCapturing() {
         return capturing;
+    }
+
+    /**
+     * 获取亮度提取 Shader（延迟加载）
+     */
+    private ShaderProgram getBrightnessShader() {
+        if (brightnessShaderHandle == null || !brightnessShaderHandle.isValid()) {
+            brightnessShaderHandle = ShaderManager.instance()
+                .get(SHADER_BRIGHTNESS);
+        }
+        return brightnessShaderHandle != null ? brightnessShaderHandle.get() : null;
+    }
+
+    /**
+     * 获取模糊 Shader（延迟加载）
+     */
+    private ShaderProgram getBlurShader() {
+        if (blurShaderHandle == null || !blurShaderHandle.isValid()) {
+            blurShaderHandle = ShaderManager.instance()
+                .get(SHADER_BLUR);
+        }
+        return blurShaderHandle != null ? blurShaderHandle.get() : null;
+    }
+
+    /**
+     * 获取合成 Shader（延迟加载）
+     */
+    private ShaderProgram getCompositeShader() {
+        if (compositeShaderHandle == null || !compositeShaderHandle.isValid()) {
+            compositeShaderHandle = ShaderManager.instance()
+                .get(SHADER_COMPOSITE);
+        }
+        return compositeShaderHandle != null ? compositeShaderHandle.get() : null;
     }
 }
