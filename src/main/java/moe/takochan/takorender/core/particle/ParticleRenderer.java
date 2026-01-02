@@ -99,6 +99,33 @@ public class ParticleRenderer {
     /** 软粒子衰减距离 */
     private float softParticleDistance = 0.5f;
 
+    /** 纹理动画 - 水平分块数 */
+    private int textureTilesX = 1;
+
+    /** 纹理动画 - 垂直分块数 */
+    private int textureTilesY = 1;
+
+    /** 纹理动画速度 */
+    private float animationSpeed = 1.0f;
+
+    /** 纹理动画模式 (0=按生命周期, 1=按速度) */
+    private int animationMode = 0;
+
+    /** MC 方块光照 (0-1) */
+    private float blockLight = 1.0f;
+
+    /** MC 天空光照 (0-1) */
+    private float skyLight = 1.0f;
+
+    /** 自发光强度 (0-1) */
+    private float emissive = 0.0f;
+
+    /** 最小亮度 */
+    private float minBrightness = 0.1f;
+
+    /** 是否接收光照 */
+    private boolean receiveLighting = true;
+
     /** 是否已初始化 */
     private boolean initialized = false;
 
@@ -267,6 +294,22 @@ public class ParticleRenderer {
             } else {
                 setUniform("uHasTexture", 0);
             }
+
+            // 纹理动画参数
+            setUniform("uTextureTilesX", textureTilesX);
+            setUniform("uTextureTilesY", textureTilesY);
+            setUniform("uAnimationMode", animationMode);
+            setUniform("uAnimationSpeed", animationSpeed);
+
+            // 光照参数
+            setUniform("uBlockLight", blockLight);
+            setUniform("uSkyLight", skyLight);
+            setUniform("uEmissive", emissive);
+            setUniform("uMinBrightness", minBrightness);
+            setUniform("uReceiveLighting", receiveLighting ? 1 : 0);
+
+            // Color LUT 暂不使用
+            setUniform("uUseColorLUT", 0);
 
             // 绑定 VAO
             GL30.glBindVertexArray(vao);
@@ -458,6 +501,51 @@ public class ParticleRenderer {
 
     public BlendMode getBlendMode() {
         return blendMode;
+    }
+
+    /**
+     * 设置纹理动画参数
+     *
+     * @param tilesX 水平分块数
+     * @param tilesY 垂直分块数
+     * @param speed  动画速度
+     * @param mode   动画模式 (0=按生命周期, 1=按速度)
+     * @return this
+     */
+    public ParticleRenderer setTextureAnimation(int tilesX, int tilesY, float speed, int mode) {
+        this.textureTilesX = tilesX;
+        this.textureTilesY = tilesY;
+        this.animationSpeed = speed;
+        this.animationMode = mode;
+        return this;
+    }
+
+    /**
+     * 设置光照参数
+     *
+     * @param blockLight MC 方块光照 (0-1)
+     * @param skyLight   MC 天空光照 (0-1)
+     * @param emissive   自发光强度 (0-1)
+     * @param receive    是否接收光照
+     * @return this
+     */
+    public ParticleRenderer setLighting(float blockLight, float skyLight, float emissive, boolean receive) {
+        this.blockLight = blockLight;
+        this.skyLight = skyLight;
+        this.emissive = emissive;
+        this.receiveLighting = receive;
+        return this;
+    }
+
+    /**
+     * 设置最小亮度
+     *
+     * @param minBrightness 最小亮度 (0-1)
+     * @return this
+     */
+    public ParticleRenderer setMinBrightness(float minBrightness) {
+        this.minBrightness = minBrightness;
+        return this;
     }
 
     /**

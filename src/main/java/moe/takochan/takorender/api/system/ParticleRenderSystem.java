@@ -2,6 +2,11 @@ package moe.takochan.takorender.api.system;
 
 import java.nio.FloatBuffer;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.MathHelper;
+import net.minecraft.world.EnumSkyBlock;
+import net.minecraft.world.World;
+
 import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
@@ -84,6 +89,8 @@ public class ParticleRenderSystem extends GameSystem {
             .orElse(null);
         ParticleStateComponent state = entity.getComponent(ParticleStateComponent.class)
             .orElse(null);
+        TransformComponent transform = entity.getComponent(TransformComponent.class)
+            .orElse(null);
 
         if (buffer == null || state == null) {
             return;
@@ -103,7 +110,7 @@ public class ParticleRenderSystem extends GameSystem {
 
         int textureId = 0;
         if (renderComp != null) {
-            configureRenderer(renderComp);
+            configureRenderer(renderComp, transform);
             textureId = renderComp.getTextureId();
         }
 
@@ -132,11 +139,59 @@ public class ParticleRenderSystem extends GameSystem {
         }
     }
 
-    private void configureRenderer(ParticleRenderComponent renderComp) {
+    private void configureRenderer(ParticleRenderComponent renderComp, TransformComponent transform) {
         renderer.setBlendMode(convertBlendMode(renderComp.getBlendMode()));
         renderer.setRenderMode(convertRenderMode(renderComp.getRenderMode()));
         renderer.setSoftParticles(renderComp.isSoftParticles(), renderComp.getSoftDistance());
         renderer.setDepthWrite(renderComp.isDepthWrite());
+
+        // 纹理动画参数
+        renderer.setTextureAnimation(
+            renderComp.getTextureTilesX(),
+            renderComp.getTextureTilesY(),
+            renderComp.getAnimationSpeed(),
+            renderComp.getAnimationMode());
+
+        // 光照参数
+        float blockLight = 1.0f;
+        float skyLight = 1.0f;
+
+        if (renderComp.isReceiveLighting() && transform != null) {
+            float[] lightLevels = queryMCLighting(transform);
+            blockLight = lightLevels[0];
+            skyLight = lightLevels[1];
+        }
+
+        renderer.setLighting(blockLight, skyLight, renderComp.getEmissive(), renderComp.isReceiveLighting());
+        renderer.setMinBrightness(renderComp.getMinBrightness());
+    }
+
+    /**
+     * 查询 MC 世界光照（按发射器位置查询）
+     *
+     * @param transform 发射器位置
+     * @return [blockLight, skyLight] 范围 0-1
+     */
+    private float[] queryMCLighting(TransformComponent transform) {
+        try {
+            Minecraft mc = Minecraft.getMinecraft();
+            World world = mc.theWorld;
+            if (world == null) {
+                return new float[] { 1.0f, 1.0f };
+            }
+
+            Vector3f pos = transform.getPosition();
+            int x = MathHelper.floor_double(pos.x);
+            int y = MathHelper.floor_double(pos.y);
+            int z = MathHelper.floor_double(pos.z);
+
+            int blockLightLevel = world.getSavedLightValue(EnumSkyBlock.Block, x, y, z);
+            int skyLightLevel = world.getSavedLightValue(EnumSkyBlock.Sky, x, y, z);
+
+            return new float[] { blockLightLevel / 15.0f, skyLightLevel / 15.0f };
+        } catch (Exception e) {
+            return new float[] { 1.0f, 1.0f };
+        }
     }
 
     /**

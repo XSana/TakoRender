@@ -93,7 +93,10 @@ public class ParticlePhysicsSystem extends GameSystem {
             return;
         }
 
-        compute.dispatchUpdateWithPlane(
+        // 计算子发射器追踪数
+        int maxDeadParticles = buffer.getMaxDeadParticles();
+
+        compute.dispatchUpdateWithCurves(
             gpuBuffer,
             deltaTime,
             emitter.getForces(),
@@ -105,7 +108,10 @@ public class ParticlePhysicsSystem extends GameSystem {
             emitter.getCollisionPlaneNX(),
             emitter.getCollisionPlaneNY(),
             emitter.getCollisionPlaneNZ(),
-            emitter.getCollisionPlaneD());
+            emitter.getCollisionPlaneD(),
+            emitter.getVelocityOverLifetime(),
+            emitter.getRotationOverLifetime(),
+            maxDeadParticles);
 
         int aliveCount = gpuBuffer.readAtomicCounter();
         state.setAliveCount(aliveCount);

@@ -11,10 +11,13 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
+import moe.takochan.takorender.api.particle.AnimationCurve;
 import moe.takochan.takorender.api.particle.CollisionMode;
 import moe.takochan.takorender.api.particle.CollisionResponse;
 import moe.takochan.takorender.api.particle.ParticleEmitter;
 import moe.takochan.takorender.api.particle.ParticleForce;
+import moe.takochan.takorender.api.particle.RotationOverLifetime;
+import moe.takochan.takorender.api.particle.VelocityOverLifetime;
 
 /**
  * 粒子计算着色器调度器
@@ -191,6 +194,47 @@ public class ParticleCompute {
     public void dispatchUpdateWithPlane(ParticleBuffer buffer, float deltaTime, List<ParticleForce> forces,
         CollisionMode collisionMode, CollisionResponse collisionResponse, float bounciness, float bounceChance,
         float bounceSpread, float planeNX, float planeNY, float planeNZ, float planeD) {
+        dispatchUpdateWithCurves(
+            buffer,
+            deltaTime,
+            forces,
+            collisionMode,
+            collisionResponse,
+            bounciness,
+            bounceChance,
+            bounceSpread,
+            planeNX,
+            planeNY,
+            planeNZ,
+            planeD,
+            null,
+            null,
+            0);
+    }
+
+    /**
+     * 调度粒子更新（完整版：带曲线和子发射器支持）
+     *
+     * @param buffer            粒子缓冲区
+     * @param deltaTime         时间增量
+     * @param forces            力场列表
+     * @param collisionMode     碰撞模式
+     * @param collisionResponse 碰撞响应
+     * @param bounciness        弹性
+     * @param bounceChance      弹跳概率
+     * @param bounceSpread      弹跳扩散角度
+     * @param planeNX           碰撞平面法向 X
+     * @param planeNY           碰撞平面法向 Y
+     * @param planeNZ           碰撞平面法向 Z
+     * @param planeD            碰撞平面距离
+     * @param velocityOverLife  速度曲线（可为 null）
+     * @param rotationOverLife  旋转曲线（可为 null）
+     * @param maxDeadParticles  最大死亡粒子追踪数（0=禁用子发射器）
+     */
+    public void dispatchUpdateWithCurves(ParticleBuffer buffer, float deltaTime, List<ParticleForce> forces,
+        CollisionMode collisionMode, CollisionResponse collisionResponse, float bounciness, float bounceChance,
+        float bounceSpread, float planeNX, float planeNY, float planeNZ, float planeD,
+        VelocityOverLifetime velocityOverLife, RotationOverLifetime rotationOverLife, int maxDeadParticles) {
 
         if (!initialized || updateShader == null) {
             return;
@@ -214,6 +258,7 @@ public class ParticleCompute {
         setUniform("uBounceSpread", bounceSpread);
         setUniform("uRandomSeed", randomSeedCounter);
         setUniform("uCollisionPlane", planeNX, planeNY, planeNZ, planeD);
+        setUniform("uMaxDeadParticles", maxDeadParticles);
 
         int forceCount = Math.min(forces != null ? forces.size() : 0, MAX_FORCES);
         setUniform("uForceCount", forceCount);
@@ -225,6 +270,64 @@ public class ParticleCompute {
                 System.arraycopy(data, 0, forceData, i * 12, 12);
             }
             setUniformArray("uForces", forceData, forceCount * 12);
+        }
+
+        // 速度曲线
+        if (velocityOverLife != null) {
+            setUniform("uVelocityOverLifetimeEnabled", 1);
+            setUniform("uVelocitySeparateAxes", velocityOverLife.isSeparateAxes() ? 1 : 0);
+
+            if (velocityOverLife.isSeparateAxes()) {
+                // 分离轴模式：需要交错格式 [t0, x0, y0, z0, t1, x1, y1, z1, ...]
+                AnimationCurve cx = velocityOverLife.getCurveX();
+                AnimationCurve cy = velocityOverLife.getCurveY();
+                AnimationCurve cz = velocityOverLife.getCurveZ();
+                int keyCount = cx.getKeyframeCount();
+                setUniform("uVelocityOverLifetimeKeyCount", keyCount);
+
+                if (keyCount > 0) {
+                    float[] curveData = new float[keyCount * 4];
+                    float[] arrX = cx.toArray();
+                    float[] arrY = cy.toArray();
+                    float[] arrZ = cz.toArray();
+                    for (int i = 0; i < keyCount; i++) {
+                        curveData[i * 4] = arrX[i * 2]; // time
+                        curveData[i * 4 + 1] = arrX[i * 2 + 1]; // x
+                        curveData[i * 4 + 2] = arrY[i * 2 + 1]; // y
+                        curveData[i * 4 + 3] = arrZ[i * 2 + 1]; // z
+                    }
+                    setUniformArray("uVelocityOverLifetimeCurve", curveData, keyCount * 4);
+                }
+            } else {
+                // 统一模式：[t0, v0, t1, v1, ...]
+                AnimationCurve curve = velocityOverLife.getUniformCurve();
+                int keyCount = curve.getKeyframeCount();
+                setUniform("uVelocityOverLifetimeKeyCount", keyCount);
+
+                if (keyCount > 0) {
+                    float[] curveData = curve.toArray();
+                    setUniformArray("uVelocityOverLifetimeCurve", curveData, keyCount * 2);
+                }
+            }
+        } else {
+            setUniform("uVelocityOverLifetimeEnabled", 0);
+            setUniform("uVelocityOverLifetimeKeyCount", 0);
+        }
+
+        // 旋转曲线（仅使用统一模式，Billboard 粒子只需 Z 轴旋转）
+        if (rotationOverLife != null) {
+            setUniform("uRotationOverLifetimeEnabled", 1);
+            AnimationCurve curve = rotationOverLife.getUniformCurve();
+            int keyCount = curve.getKeyframeCount();
+            setUniform("uRotationOverLifetimeKeyCount", keyCount);
+
+            if (keyCount > 0) {
+                float[] curveData = curve.toArray();
+                setUniformArray("uRotationOverLifetimeCurve", curveData, keyCount * 2);
+            }
+        } else {
+            setUniform("uRotationOverLifetimeEnabled", 0);
+            setUniform("uRotationOverLifetimeKeyCount", 0);
         }
 
         buffer.bindToCompute(PARTICLE_SSBO_BINDING);
