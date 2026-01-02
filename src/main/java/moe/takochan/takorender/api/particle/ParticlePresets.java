@@ -1,12 +1,19 @@
 package moe.takochan.takorender.api.particle;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.joml.Vector3f;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.component.ParticleBufferComponent;
 import moe.takochan.takorender.api.component.ParticleEmitterComponent;
 import moe.takochan.takorender.api.component.ParticleRenderComponent;
 import moe.takochan.takorender.api.component.ParticleStateComponent;
+import moe.takochan.takorender.api.component.TransformComponent;
 import moe.takochan.takorender.api.ecs.Entity;
+import moe.takochan.takorender.api.ecs.World;
 
 /**
  * 粒子预设效果工厂
@@ -487,7 +494,7 @@ public final class ParticlePresets {
                 .setSpeed(10f * scale)
                 .setVelocityVariation(0.5f)
                 .setSize(0.08f * scale, 0.2f * scale)
-                .setColor(0.6f, 0.5f, 0.4f, 1.0f)
+                .setColorOverLifetime(ColorOverLifetime.debris())
                 .setAngularVelocity(-5.0f, 5.0f)
                 .setVelocityOverLifetime(VelocityOverLifetime.decelerate())
                 .setRotationOverLifetime(RotationOverLifetime.debris())
@@ -501,5 +508,134 @@ public final class ParticlePresets {
         entity.addComponent(
             new ParticleStateComponent().setLooping(false)
                 .setDuration(5.0f));
+    }
+
+    /**
+     * 创建多层火焰效果
+     *
+     * <p>
+     * 包含三层: 火焰核心 + 烟雾 + 火星
+     * </p>
+     *
+     * @param world     ECS World
+     * @param position  位置
+     * @param intensity 强度 (0.5-2.0)
+     * @return 创建的实体列表
+     */
+    public static List<Entity> createLayeredFire(World world, Vector3f position, float intensity) {
+        List<Entity> entities = new ArrayList<>();
+
+        Entity fireCore = world.createEntity();
+        TransformComponent fireTrans = new TransformComponent();
+        fireTrans.setPosition(position.x, position.y, position.z);
+        fireCore.addComponent(fireTrans);
+        applyFire(fireCore, intensity);
+        entities.add(fireCore);
+
+        Entity smoke = world.createEntity();
+        TransformComponent smokeTrans = new TransformComponent();
+        smokeTrans.setPosition(position.x, position.y + 0.5f, position.z);
+        smoke.addComponent(smokeTrans);
+        applySmoke(smoke, intensity * 0.3f);
+        entities.add(smoke);
+
+        Entity sparks = world.createEntity();
+        TransformComponent sparksTrans = new TransformComponent();
+        sparksTrans.setPosition(position.x, position.y, position.z);
+        sparks.addComponent(sparksTrans);
+        applySparks(sparks);
+        entities.add(sparks);
+
+        return entities;
+    }
+
+    /**
+     * 创建多层爆炸效果
+     *
+     * <p>
+     * 包含三层: 爆炸闪光 + 碎片 + 烟雾
+     * </p>
+     *
+     * @param world    ECS World
+     * @param position 位置
+     * @param scale    规模 (0.5-3.0)
+     * @return 创建的实体列表
+     */
+    public static List<Entity> createLayeredExplosion(World world, Vector3f position, float scale) {
+        List<Entity> entities = new ArrayList<>();
+
+        Entity flash = world.createEntity();
+        TransformComponent flashTrans = new TransformComponent();
+        flashTrans.setPosition(position.x, position.y, position.z);
+        flash.addComponent(flashTrans);
+        applyExplosion(flash, scale);
+        entities.add(flash);
+
+        Entity debris = world.createEntity();
+        TransformComponent debrisTrans = new TransformComponent();
+        debrisTrans.setPosition(position.x, position.y, position.z);
+        debris.addComponent(debrisTrans);
+        applyDebrisExplosion(debris, scale);
+        entities.add(debris);
+
+        Entity smoke = world.createEntity();
+        TransformComponent smokeTrans = new TransformComponent();
+        smokeTrans.setPosition(position.x, position.y, position.z);
+        smoke.addComponent(smokeTrans);
+        smoke.addComponent(new ParticleBufferComponent((int) (1000 * scale)));
+        smoke.addComponent(
+            new ParticleEmitterComponent().setShape(EmitterShape.SPHERE, 0.5f * scale)
+                .setRate(0)
+                .setBurst((int) (50 * scale))
+                .setLifetime(2.0f, 4.0f)
+                .setVelocity(0, 1.0f, 0)
+                .setVelocityVariation(0.5f)
+                .setSize(0.3f * scale, 0.8f * scale)
+                .setColorOverLifetime(ColorOverLifetime.smoke())
+                .setSizeOverLifetime(SizeOverLifetime.smoke())
+                .setVelocityOverLifetime(VelocityOverLifetime.smoke())
+                .addForce(ParticleForce.turbulence(1.0f, 0.5f)));
+        smoke.addComponent(
+            new ParticleRenderComponent().setBlendMode(BlendMode.ALPHA)
+                .setReceiveLighting(true));
+        smoke.addComponent(
+            new ParticleStateComponent().setLooping(false)
+                .setDuration(5.0f));
+        entities.add(smoke);
+
+        return entities;
+    }
+
+    /**
+     * 创建魔法光环效果
+     *
+     * <p>
+     * 包含两层: 内层光圈 + 外层粒子
+     * </p>
+     *
+     * @param world    ECS World
+     * @param position 位置
+     * @param color    颜色 (0xRRGGBB)
+     * @param radius   半径
+     * @return 创建的实体列表
+     */
+    public static List<Entity> createLayeredAura(World world, Vector3f position, int color, float radius) {
+        List<Entity> entities = new ArrayList<>();
+
+        Entity innerRing = world.createEntity();
+        TransformComponent innerTrans = new TransformComponent();
+        innerTrans.setPosition(position.x, position.y, position.z);
+        innerRing.addComponent(innerTrans);
+        applyEnergyOrb(innerRing, color);
+        entities.add(innerRing);
+
+        Entity outerParticles = world.createEntity();
+        TransformComponent outerTrans = new TransformComponent();
+        outerTrans.setPosition(position.x, position.y, position.z);
+        outerParticles.addComponent(outerTrans);
+        applyAura(outerParticles, color, radius);
+        entities.add(outerParticles);
+
+        return entities;
     }
 }

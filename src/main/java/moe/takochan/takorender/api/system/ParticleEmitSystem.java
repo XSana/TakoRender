@@ -17,6 +17,7 @@ import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
 import moe.takochan.takorender.api.particle.EmitterShape;
+import moe.takochan.takorender.api.particle.ParticleEmitter;
 import moe.takochan.takorender.core.particle.ParticleBuffer;
 import moe.takochan.takorender.core.particle.ParticleCPU;
 
@@ -26,6 +27,13 @@ import moe.takochan.takorender.core.particle.ParticleCPU;
  * <p>
  * 负责计算发射数量、生成粒子数据、上传到 GPU 或 CPU 缓冲区。
  * 在 UPDATE 阶段执行。
+ * </p>
+ *
+ * <p>
+ * <b>兼容性说明</b>:
+ * 初始化时通过 ShaderProgram.isSSBOSupported() 检测 GPU 能力。
+ * SSBO 需要 OpenGL 4.3+，但 macOS 最高只支持 OpenGL 4.1。
+ * 不支持时自动切换到 CPU 回退模式 (ParticleCPU)。
  * </p>
  */
 @SideOnly(Side.CLIENT)
@@ -83,7 +91,7 @@ public class ParticleEmitSystem extends GameSystem {
             return;
         }
 
-        state.addTime(deltaTime);
+        state.setSystemTime(state.getSystemTime() + deltaTime);
 
         if (!state.isLooping() && state.getSystemTime() >= state.getDuration()) {
             state.setCompleted(true);
@@ -97,13 +105,159 @@ public class ParticleEmitSystem extends GameSystem {
 
         Vector3f position = transform.getPosition();
         emitParticles(emitter, buffer, state, position, emitCount);
+
+        processSubEmitters(emitter, buffer, state);
     }
 
+    private void processSubEmitters(ParticleEmitterComponent emitter, ParticleBufferComponent buffer,
+        ParticleStateComponent state) {
+
+        if (emitter.getSubEmitters()
+            .isEmpty()) {
+            return;
+        }
+
+        int deadCount = state.getDeadParticleCount();
+        float[] deadData = state.getDeadParticleData();
+
+        if (deadCount <= 0 || deadData == null) {
+            return;
+        }
+
+        for (ParticleEmitter.SubEmitterEntry entry : emitter.getSubEmitters()) {
+            if (entry.trigger != ParticleEmitter.SubEmitterTrigger.DEATH) {
+                continue;
+            }
+
+            for (int i = 0; i < deadCount; i++) {
+                int base = i * 4;
+                float x = deadData[base];
+                float y = deadData[base + 1];
+                float z = deadData[base + 2];
+                float parentVelMag = deadData[base + 3];
+
+                emitSubEmitterParticles(entry, buffer, state, x, y, z, parentVelMag);
+            }
+        }
+
+        state.setDeadParticleCount(0);
+    }
+
+    private void emitSubEmitterParticles(ParticleEmitter.SubEmitterEntry entry, ParticleBufferComponent buffer,
+        ParticleStateComponent state, float x, float y, float z, float parentVelMag) {
+
+        ParticleEmitter subEmitter = entry.emitter;
+        int count = entry.emitCount;
+        float inheritVelocity = entry.inheritVelocity;
+
+        float[] particles = new float[count * ParticleBuffer.PARTICLE_SIZE_FLOATS];
+        Vector3f position = new Vector3f(x, y, z);
+
+        for (int i = 0; i < count; i++) {
+            int offset = i * ParticleBuffer.PARTICLE_SIZE_FLOATS;
+            generateSubEmitterParticle(subEmitter, state, position, particles, offset, parentVelMag, inheritVelocity);
+        }
+
+        if (buffer.isUseCPUFallback()) {
+            ParticleCPU cpuBuffer = buffer.getCpuBuffer();
+            if (cpuBuffer != null) {
+                for (int i = 0; i < count; i++) {
+                    int base = i * ParticleBuffer.PARTICLE_SIZE_FLOATS;
+                    cpuBuffer.emit(
+                        particles[base],
+                        particles[base + 1],
+                        particles[base + 2],
+                        particles[base + 4],
+                        particles[base + 5],
+                        particles[base + 6],
+                        particles[base + 3],
+                        particles[base + 12],
+                        particles[base + 8],
+                        particles[base + 9],
+                        particles[base + 10],
+                        particles[base + 11],
+                        particles[base + 13],
+                        particles[base + 15]);
+                }
+            }
+        } else {
+            ParticleBuffer gpuBuffer = buffer.getGpuBuffer();
+            if (gpuBuffer != null && gpuBuffer.isValid()) {
+                gpuBuffer.uploadParticles(particles, count);
+            }
+        }
+    }
+
+    /**
+     * 生成子发射器粒子（支持速度继承）
+     *
+     * @param parentVelMag    父粒子速度大小
+     * @param inheritVelocity 速度继承比例 (0-1)
+     */
+    private void generateSubEmitterParticle(ParticleEmitter subEmitter, ParticleStateComponent state, Vector3f position,
+        float[] particles, int offset, float parentVelMag, float inheritVelocity) {
+
+        float lifetime = randomRange(subEmitter.getLifetimeMin(), subEmitter.getLifetimeMax());
+        particles[offset] = position.x;
+        particles[offset + 1] = position.y;
+        particles[offset + 2] = position.z;
+        particles[offset + 3] = lifetime;
+
+        float speed = subEmitter.getSpeed();
+
+        float vx = (random.nextFloat() * 2 - 1) * speed;
+        float vy = (random.nextFloat() * 2 - 1) * speed;
+        float vz = (random.nextFloat() * 2 - 1) * speed;
+        vx += subEmitter.getVelocityX();
+        vy += subEmitter.getVelocityY();
+        vz += subEmitter.getVelocityZ();
+
+        if (inheritVelocity > 0 && parentVelMag > 0) {
+            float inheritedSpeed = parentVelMag * inheritVelocity;
+            float dirX = random.nextFloat() * 2 - 1;
+            float dirY = random.nextFloat() * 2 - 1;
+            float dirZ = random.nextFloat() * 2 - 1;
+            float len = (float) Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+            if (len > 0.001f) {
+                dirX /= len;
+                dirY /= len;
+                dirZ /= len;
+            }
+            vx += dirX * inheritedSpeed;
+            vy += dirY * inheritedSpeed;
+            vz += dirZ * inheritedSpeed;
+        }
+
+        particles[offset + 4] = vx;
+        particles[offset + 5] = vy;
+        particles[offset + 6] = vz;
+        particles[offset + 7] = lifetime;
+
+        particles[offset + 8] = subEmitter.getColorR();
+        particles[offset + 9] = subEmitter.getColorG();
+        particles[offset + 10] = subEmitter.getColorB();
+        particles[offset + 11] = subEmitter.getColorA();
+
+        particles[offset + 12] = randomRange(subEmitter.getSizeMin(), subEmitter.getSizeMax());
+        particles[offset + 13] = 0;
+        particles[offset + 14] = 0;
+        particles[offset + 15] = 0;
+    }
+
+    /**
+     * 初始化粒子缓冲区
+     *
+     * <p>
+     * 检测 SSBO 支持并选择 GPU 或 CPU 模式。
+     * OpenGL 4.3+ 支持 SSBO，低于此版本使用 CPU 回退。
+     * </p>
+     */
     private void initializeBuffer(ParticleBufferComponent buffer) {
         boolean ssboSupported = ShaderProgram.isSSBOSupported();
 
         if (ssboSupported) {
-            ParticleBuffer gpuBuffer = new ParticleBuffer(buffer.getMaxParticles());
+            int maxDeadParticles = buffer.getMaxDeadParticles();
+            ParticleBuffer gpuBuffer = new ParticleBuffer(buffer.getMaxParticles(), maxDeadParticles);
             gpuBuffer.initialize();
             buffer.setGpuBuffer(gpuBuffer);
             buffer.setUseCPUFallback(false);
@@ -126,7 +280,7 @@ public class ParticleEmitSystem extends GameSystem {
                 state.setInitialBurstTriggered(true);
                 state.setBurstAccumulator(0);
             } else if (emitter.getBurstInterval() > 0) {
-                state.addBurstAccumulator(deltaTime);
+                state.setBurstAccumulator(state.getBurstAccumulator() + deltaTime);
                 while (state.getBurstAccumulator() >= emitter.getBurstInterval()) {
                     state.setBurstAccumulator(state.getBurstAccumulator() - emitter.getBurstInterval());
                     count += emitter.getBurstCount();
@@ -135,7 +289,7 @@ public class ParticleEmitSystem extends GameSystem {
         }
 
         if (emitter.getEmissionRate() > 0) {
-            state.addEmissionAccumulator(deltaTime * emitter.getEmissionRate());
+            state.setEmissionAccumulator(state.getEmissionAccumulator() + deltaTime * emitter.getEmissionRate());
             int rateCount = (int) state.getEmissionAccumulator();
             state.setEmissionAccumulator(state.getEmissionAccumulator() - rateCount);
             count += rateCount;

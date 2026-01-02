@@ -273,4 +273,16 @@ public class ColorOverLifetime {
             .addAlphaKey(0.8f, 0.9f)
             .addAlphaKey(1, 0.6f);
     }
+
+    /** 碎片效果 - 石头/泥土色渐隐 */
+    public static ColorOverLifetime debris() {
+        return new ColorOverLifetime().addColorKey(0, 0.55f, 0.5f, 0.45f)
+            .addColorKey(0.3f, 0.5f, 0.45f, 0.4f)
+            .addColorKey(0.7f, 0.45f, 0.4f, 0.35f)
+            .addColorKey(1, 0.4f, 0.35f, 0.3f)
+            .addAlphaKey(0, 1)
+            .addAlphaKey(0.5f, 0.9f)
+            .addAlphaKey(0.8f, 0.6f)
+            .addAlphaKey(1, 0);
+    }
 }

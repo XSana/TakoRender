@@ -553,8 +553,32 @@ public class ParticleEmitter {
         return this;
     }
 
+    /**
+     * 添加死亡时触发的子发射器（带速度继承）
+     *
+     * @param emitter         子发射器
+     * @param emitCount       发射数量
+     * @param inheritVelocity 继承父粒子速度的比例 (0-1)
+     */
+    public ParticleEmitter addSubEmitterOnDeath(ParticleEmitter emitter, int emitCount, float inheritVelocity) {
+        subEmitters.add(new SubEmitterEntry(SubEmitterTrigger.DEATH, emitter, emitCount, inheritVelocity));
+        return this;
+    }
+
     public ParticleEmitter addSubEmitterOnCollision(ParticleEmitter emitter, int emitCount) {
         subEmitters.add(new SubEmitterEntry(SubEmitterTrigger.COLLISION, emitter, emitCount));
+        return this;
+    }
+
+    /**
+     * 添加碰撞时触发的子发射器（带速度继承）
+     *
+     * @param emitter         子发射器
+     * @param emitCount       发射数量
+     * @param inheritVelocity 继承父粒子速度的比例 (0-1)
+     */
+    public ParticleEmitter addSubEmitterOnCollision(ParticleEmitter emitter, int emitCount, float inheritVelocity) {
+        subEmitters.add(new SubEmitterEntry(SubEmitterTrigger.COLLISION, emitter, emitCount, inheritVelocity));
         return this;
     }
 
@@ -937,11 +961,19 @@ public class ParticleEmitter {
         public final SubEmitterTrigger trigger;
         public final ParticleEmitter emitter;
         public final int emitCount;
+        /** 继承父粒子速度的比例 (0-1) */
+        public final float inheritVelocity;
 
         public SubEmitterEntry(SubEmitterTrigger trigger, ParticleEmitter emitter, int emitCount) {
+            this(trigger, emitter, emitCount, 0);
+        }
+
+        public SubEmitterEntry(SubEmitterTrigger trigger, ParticleEmitter emitter, int emitCount,
+            float inheritVelocity) {
             this.trigger = trigger;
             this.emitter = emitter;
             this.emitCount = emitCount;
+            this.inheritVelocity = inheritVelocity;
         }
     }
 }

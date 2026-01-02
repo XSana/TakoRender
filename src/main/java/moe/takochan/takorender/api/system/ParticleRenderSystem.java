@@ -26,6 +26,7 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.particle.BlendMode;
 import moe.takochan.takorender.api.particle.RenderMode;
 import moe.takochan.takorender.core.particle.ParticleBuffer;
+import moe.takochan.takorender.core.particle.ParticleCPU;
 import moe.takochan.takorender.core.particle.ParticleRenderer;
 
 /**
@@ -33,6 +34,26 @@ import moe.takochan.takorender.core.particle.ParticleRenderer;
  *
  * <p>
  * 负责渲染所有粒子系统。在 RENDER 阶段执行。
+ * </p>
+ *
+ * <p>
+ * <b>渲染路径</b>:
+ * </p>
+ * <ul>
+ * <li>GPU 模式: 使用 SSBO 绑定粒子数据，Instanced Drawing 渲染 (OpenGL 4.3+)</li>
+ * <li>CPU 模式: 每帧上传粒子数据到 VBO，动态渲染 (OpenGL 3.3)</li>
+ * </ul>
+ *
+ * <p>
+ * 两种模式使用相同的着色器，视觉效果一致。CPU 模式性能较低，建议限制粒子数。
+ * </p>
+ *
+ * <p>
+ * <b>后处理集成</b>:
+ * </p>
+ * <p>
+ * 当 PostProcessSystem 启用时，粒子会渲染到 sceneFbo。
+ * 带有 emissive > 0 的粒子会自动贡献到 Bloom 辉光效果。
  * </p>
  */
 @SideOnly(Side.CLIENT)
@@ -58,7 +79,9 @@ public class ParticleRenderSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        return 200;
+        // 优先级 201: 在 MeshRenderSystem (200) 之后渲染
+        // MeshRenderSystem 会调用 beginCapture/endCapture，但我们需要自己处理
+        return 201;
     }
 
     @Override
@@ -79,8 +102,19 @@ public class ParticleRenderSystem extends GameSystem {
             extractMinecraftCamera();
         }
 
+        PostProcessSystem postProcess = getWorld() != null ? getWorld().getSystem(PostProcessSystem.class) : null;
+        boolean usePostProcess = postProcess != null && postProcess.isEnabled() && postProcess.isInitialized();
+
+        if (usePostProcess) {
+            postProcess.beginCapture();
+        }
+
         for (Entity entity : getRequiredEntities()) {
             renderParticleEntity(entity, useMinecraftCamera, deltaTime);
+        }
+
+        if (usePostProcess) {
+            postProcess.endCapture();
         }
     }
 
@@ -115,8 +149,7 @@ public class ParticleRenderSystem extends GameSystem {
         }
 
         if (buffer.isUseCPUFallback()) {
-            // CPU 回退模式暂不支持渲染
-            TakoRenderMod.LOG.debug("ParticleRenderSystem: CPU fallback rendering not yet implemented");
+            renderCPU(buffer, state, textureId);
         } else {
             renderGPU(buffer, state, textureId);
         }
@@ -247,6 +280,22 @@ public class ParticleRenderSystem extends GameSystem {
         }
 
         renderer.render(gpuBuffer, viewMatrix, projMatrix, cameraPos, textureId, state.getAliveCount());
+    }
+
+    /**
+     * CPU 渲染路径（回退模式）
+     *
+     * <p>
+     * 每帧上传粒子数据到 VBO，兼容 OpenGL 3.3。
+     * </p>
+     */
+    private void renderCPU(ParticleBufferComponent buffer, ParticleStateComponent state, int textureId) {
+        ParticleCPU cpuBuffer = buffer.getCpuBuffer();
+        if (cpuBuffer == null) {
+            return;
+        }
+
+        renderer.renderCPU(cpuBuffer, viewMatrix, projMatrix, cameraPos, textureId, state.getAliveCount());
     }
 
     private CameraComponent findActiveCamera() {

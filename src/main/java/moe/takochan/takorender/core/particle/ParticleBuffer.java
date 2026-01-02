@@ -73,6 +73,18 @@ public class ParticleBuffer implements AutoCloseable {
     /** 原子计数器缓冲区 ID (存活粒子数) */
     private int atomicCounterId = 0;
 
+    /** 死亡粒子缓冲区 SSBO ID（用于子发射器） */
+    private int deadBufferId = 0;
+
+    /** 死亡粒子计数器 ID */
+    private int deadCounterId = 0;
+
+    /** 最大死亡粒子追踪数 */
+    private int maxDeadParticles = 0;
+
+    /** 死亡粒子数据读回缓冲区 */
+    private FloatBuffer deadReadBuffer;
+
     /** CPU 端缓冲区 (用于初始化和数据上传) */
     private FloatBuffer cpuBuffer;
 
@@ -85,6 +97,16 @@ public class ParticleBuffer implements AutoCloseable {
      * @param maxParticles 最大粒子数量
      */
     public ParticleBuffer(int maxParticles) {
+        this(maxParticles, 0);
+    }
+
+    /**
+     * 创建粒子缓冲区（带子发射器支持）
+     *
+     * @param maxParticles     最大粒子数量
+     * @param maxDeadParticles 最大死亡粒子追踪数（0=禁用子发射器）
+     */
+    public ParticleBuffer(int maxParticles, int maxDeadParticles) {
         if (!ShaderProgram.isSSBOSupported()) {
             TakoRenderMod.LOG.warn("SSBO not supported, ParticleBuffer will not function");
             this.maxParticles = 0;
@@ -94,6 +116,7 @@ public class ParticleBuffer implements AutoCloseable {
 
         this.maxParticles = maxParticles;
         this.bufferSize = maxParticles * PARTICLE_SIZE_BYTES;
+        this.maxDeadParticles = maxDeadParticles;
 
         TakoRenderMod.LOG
             .info("[ParticleBuffer] Creating buffer for {} particles ({} bytes)", maxParticles, bufferSize);
@@ -131,6 +154,30 @@ public class ParticleBuffer implements AutoCloseable {
         GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
 
         cpuBuffer = BufferUtils.createFloatBuffer(maxParticles * PARTICLE_SIZE_FLOATS);
+
+        if (maxDeadParticles > 0) {
+            int deadBufferSize = maxDeadParticles * 4 * 4;
+            deadBufferId = GL15.glGenBuffers();
+            GL15.glBindBuffer(GL_SHADER_STORAGE_BUFFER, deadBufferId);
+            ByteBuffer deadZero = BufferUtils.createByteBuffer(deadBufferSize);
+            for (int i = 0; i < deadBufferSize; i++) {
+                deadZero.put((byte) 0);
+            }
+            deadZero.flip();
+            GL15.glBufferData(GL_SHADER_STORAGE_BUFFER, deadZero, GL15.GL_DYNAMIC_DRAW);
+            GL15.glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+            deadCounterId = GL15.glGenBuffers();
+            GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, deadCounterId);
+            ByteBuffer deadCounterZero = BufferUtils.createByteBuffer(4);
+            deadCounterZero.putInt(0, 0);
+            GL15.glBufferData(GL_ATOMIC_COUNTER_BUFFER, deadCounterZero, GL15.GL_DYNAMIC_DRAW);
+            GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+
+            deadReadBuffer = BufferUtils.createFloatBuffer(maxDeadParticles * 4);
+
+            TakoRenderMod.LOG.info("[ParticleBuffer] Dead particle buffer initialized: {} slots", maxDeadParticles);
+        }
 
         initialized = true;
         TakoRenderMod.LOG.info("[ParticleBuffer] Initialized SSBO ID={}, AtomicCounter ID={}", ssboId, atomicCounterId);
@@ -317,6 +364,97 @@ public class ParticleBuffer implements AutoCloseable {
         GL30.glBindVertexArray(0);
     }
 
+    /**
+     * 绑定死亡粒子缓冲区到 compute shader
+     *
+     * @param bufferBindingPoint  死亡粒子 SSBO 绑定点
+     * @param counterBindingPoint 死亡计数器绑定点
+     */
+    public void bindDeadBuffers(int bufferBindingPoint, int counterBindingPoint) {
+        ensureInitialized();
+        if (deadBufferId != 0) {
+            GL30.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bufferBindingPoint, deadBufferId);
+        }
+        if (deadCounterId != 0) {
+            GL30.glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, counterBindingPoint, deadCounterId);
+        }
+    }
+
+    /**
+     * 重置死亡粒子计数器
+     */
+    public void resetDeadCounter() {
+        ensureInitialized();
+        if (deadCounterId == 0) return;
+
+        GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, deadCounterId);
+        ByteBuffer data = BufferUtils.createByteBuffer(4);
+        data.putInt(0, 0);
+        GL15.glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, data);
+        GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+    }
+
+    /**
+     * 读取死亡粒子计数
+     *
+     * @return 死亡粒子数量
+     */
+    public int readDeadCounter() {
+        ensureInitialized();
+        if (deadCounterId == 0) return 0;
+
+        GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, deadCounterId);
+        ByteBuffer data = GL15.glMapBuffer(GL_ATOMIC_COUNTER_BUFFER, GL15.GL_READ_ONLY, 4, null);
+        int value = 0;
+        if (data != null) {
+            value = data.getInt(0);
+            GL15.glUnmapBuffer(GL_ATOMIC_COUNTER_BUFFER);
+        }
+        GL15.glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+        return Math.min(value, maxDeadParticles);
+    }
+
+    /**
+     * 读取死亡粒子数据
+     *
+     * @param deadCount 要读取的死亡粒子数量
+     * @return 死亡粒子数据数组 (每粒子 4 floats: x, y, z, velocityMagnitude)
+     */
+    public float[] readDeadParticles(int deadCount) {
+        ensureInitialized();
+        if (deadBufferId == 0 || deadCount <= 0) {
+            return new float[0];
+        }
+
+        int count = Math.min(deadCount, maxDeadParticles);
+        float[] result = new float[count * 4];
+
+        GL15.glBindBuffer(GL_SHADER_STORAGE_BUFFER, deadBufferId);
+        ByteBuffer mapped = GL15.glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL15.GL_READ_ONLY, count * 4 * 4, null);
+        if (mapped != null) {
+            mapped.asFloatBuffer()
+                .get(result);
+            GL15.glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+        }
+        GL15.glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+        return result;
+    }
+
+    /**
+     * 获取死亡粒子缓冲区 ID
+     */
+    public int getDeadBufferId() {
+        return deadBufferId;
+    }
+
+    /**
+     * 获取最大死亡粒子追踪数
+     */
+    public int getMaxDeadParticles() {
+        return maxDeadParticles;
+    }
+
     public int getMaxParticles() {
         return maxParticles;
     }
@@ -362,7 +500,16 @@ public class ParticleBuffer implements AutoCloseable {
             GL15.glDeleteBuffers(atomicCounterId);
             atomicCounterId = 0;
         }
+        if (deadBufferId != 0) {
+            GL15.glDeleteBuffers(deadBufferId);
+            deadBufferId = 0;
+        }
+        if (deadCounterId != 0) {
+            GL15.glDeleteBuffers(deadCounterId);
+            deadCounterId = 0;
+        }
         cpuBuffer = null;
+        deadReadBuffer = null;
         initialized = false;
 
         TakoRenderMod.LOG.info("[ParticleBuffer] Disposed");

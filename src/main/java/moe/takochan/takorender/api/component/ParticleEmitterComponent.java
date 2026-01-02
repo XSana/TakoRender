@@ -122,6 +122,20 @@ public class ParticleEmitterComponent extends Component {
     private float collisionPlaneNZ = 0;
     private float collisionPlaneD = 0;
 
+    /** 碰撞球体 */
+    private float collisionSphereCenterX = 0;
+    private float collisionSphereCenterY = 0;
+    private float collisionSphereCenterZ = 0;
+    private float collisionSphereRadius = 1;
+
+    /** 碰撞盒 */
+    private float collisionBoxMinX = -1;
+    private float collisionBoxMinY = -1;
+    private float collisionBoxMinZ = -1;
+    private float collisionBoxMaxX = 1;
+    private float collisionBoxMaxY = 1;
+    private float collisionBoxMaxZ = 1;
+
     /** 子发射器 */
     private final List<ParticleEmitter.SubEmitterEntry> subEmitters = new ArrayList<>();
 
@@ -556,7 +570,64 @@ public class ParticleEmitterComponent extends Component {
         return this;
     }
 
-    // ==================== 子发射器 ====================
+    public float getCollisionSphereCenterX() {
+        return collisionSphereCenterX;
+    }
+
+    public float getCollisionSphereCenterY() {
+        return collisionSphereCenterY;
+    }
+
+    public float getCollisionSphereCenterZ() {
+        return collisionSphereCenterZ;
+    }
+
+    public float getCollisionSphereRadius() {
+        return collisionSphereRadius;
+    }
+
+    public ParticleEmitterComponent setCollisionSphere(float cx, float cy, float cz, float radius) {
+        this.collisionSphereCenterX = cx;
+        this.collisionSphereCenterY = cy;
+        this.collisionSphereCenterZ = cz;
+        this.collisionSphereRadius = radius;
+        return this;
+    }
+
+    public float getCollisionBoxMinX() {
+        return collisionBoxMinX;
+    }
+
+    public float getCollisionBoxMinY() {
+        return collisionBoxMinY;
+    }
+
+    public float getCollisionBoxMinZ() {
+        return collisionBoxMinZ;
+    }
+
+    public float getCollisionBoxMaxX() {
+        return collisionBoxMaxX;
+    }
+
+    public float getCollisionBoxMaxY() {
+        return collisionBoxMaxY;
+    }
+
+    public float getCollisionBoxMaxZ() {
+        return collisionBoxMaxZ;
+    }
+
+    public ParticleEmitterComponent setCollisionBox(float minX, float minY, float minZ, float maxX, float maxY,
+        float maxZ) {
+        this.collisionBoxMinX = minX;
+        this.collisionBoxMinY = minY;
+        this.collisionBoxMinZ = minZ;
+        this.collisionBoxMaxX = maxX;
+        this.collisionBoxMaxY = maxY;
+        this.collisionBoxMaxZ = maxZ;
+        return this;
+    }
 
     public List<ParticleEmitter.SubEmitterEntry> getSubEmitters() {
         return subEmitters;

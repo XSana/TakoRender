@@ -150,6 +150,12 @@ public class ParticleRenderer {
     /** 当前内置 Mesh 类型 */
     private BuiltinMesh currentBuiltinMesh = null;
 
+    /** CPU 粒子 VBO（动态数据） */
+    private int cpuParticleVbo = 0;
+
+    /** CPU 粒子 VBO 容量 */
+    private int cpuParticleVboCapacity = 0;
+
     /** 四边形顶点数据 (2D position + UV) */
     private static final float[] QUAD_VERTICES = {
         // pos.x, pos.y, uv.x, uv.y
@@ -340,6 +346,157 @@ public class ParticleRenderer {
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
             }
         }
+    }
+
+    /**
+     * 渲染 CPU 粒子（macOS 回退路径）
+     *
+     * @param cpuBuffer     CPU 粒子缓冲区
+     * @param viewMatrix    视图矩阵
+     * @param projMatrix    投影矩阵
+     * @param cameraPos     相机位置
+     * @param textureId     纹理 ID
+     * @param particleCount 粒子数量
+     */
+    public void renderCPU(ParticleCPU cpuBuffer, float[] viewMatrix, float[] projMatrix, float[] cameraPos,
+        int textureId, int particleCount) {
+
+        if (!initialized || particleCount <= 0 || cpuBuffer == null) {
+            return;
+        }
+
+        if (shader == null) {
+            return;
+        }
+
+        float[] particles = cpuBuffer.getParticles();
+        int maxParticles = cpuBuffer.getMaxParticles();
+
+        // 确保 VBO 容量足够
+        ensureCpuVboCapacity(maxParticles);
+
+        // 上传粒子数据到 VBO
+        uploadCpuParticleData(particles, maxParticles);
+
+        try (var ctx = GLStateContext.begin()) {
+            setupRenderState(ctx);
+
+            shader.use();
+
+            // 设置 uniform（与 GPU 渲染相同）
+            setUniformMatrix4("uViewMatrix", viewMatrix);
+            setUniformMatrix4("uProjMatrix", projMatrix);
+            setUniform("uCameraPos", cameraPos[0], cameraPos[1], cameraPos[2]);
+            setUniform("uRenderMode", renderMode.ordinal());
+            setUniform("uSoftParticles", softParticles ? 1 : 0);
+            setUniform("uSoftDistance", softParticleDistance);
+
+            if (textureId > 0) {
+                GL13.glActiveTexture(GL13.GL_TEXTURE0);
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
+                setUniform("uTexture", 0);
+                setUniform("uHasTexture", 1);
+            } else {
+                setUniform("uHasTexture", 0);
+            }
+
+            setUniform("uTextureTilesX", textureTilesX);
+            setUniform("uTextureTilesY", textureTilesY);
+            setUniform("uAnimationMode", animationMode);
+            setUniform("uAnimationSpeed", animationSpeed);
+            setUniform("uBlockLight", blockLight);
+            setUniform("uSkyLight", skyLight);
+            setUniform("uEmissive", emissive);
+            setUniform("uMinBrightness", minBrightness);
+            setUniform("uReceiveLighting", receiveLighting ? 1 : 0);
+            setUniform("uUseColorLUT", 0);
+
+            // 绑定 VAO
+            GL30.glBindVertexArray(vao);
+
+            // 绑定 CPU 粒子 VBO 作为实例属性
+            bindCpuParticleAttributes();
+
+            // 实例化渲染
+            if (renderMode == RenderMode.POINT_SPRITE) {
+                GL11.glEnable(GL20.GL_POINT_SPRITE);
+                GL11.glEnable(GL20.GL_VERTEX_PROGRAM_POINT_SIZE);
+                GL31.glDrawArraysInstanced(GL11.GL_POINTS, 0, 1, maxParticles);
+                GL11.glDisable(GL20.GL_VERTEX_PROGRAM_POINT_SIZE);
+                GL11.glDisable(GL20.GL_POINT_SPRITE);
+            } else {
+                GL31.glDrawArraysInstanced(GL11.GL_TRIANGLES, 0, 6, maxParticles);
+            }
+
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+            GL30.glBindVertexArray(0);
+            ShaderProgram.unbind();
+
+            if (textureId > 0) {
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            }
+        }
+    }
+
+    /**
+     * 确保 CPU VBO 容量足够
+     */
+    private void ensureCpuVboCapacity(int maxParticles) {
+        int requiredBytes = maxParticles * ParticleBuffer.PARTICLE_SIZE_BYTES;
+
+        if (cpuParticleVbo == 0) {
+            cpuParticleVbo = GL15.glGenBuffers();
+        }
+
+        if (cpuParticleVboCapacity < requiredBytes) {
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, cpuParticleVbo);
+            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, requiredBytes, GL15.GL_DYNAMIC_DRAW);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+            cpuParticleVboCapacity = requiredBytes;
+        }
+    }
+
+    /**
+     * 上传 CPU 粒子数据到 VBO
+     */
+    private void uploadCpuParticleData(float[] particles, int maxParticles) {
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, cpuParticleVbo);
+
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(particles.length);
+        buffer.put(particles)
+            .flip();
+        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, buffer);
+
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+    }
+
+    /**
+     * 绑定 CPU 粒子 VBO 作为实例属性
+     */
+    private void bindCpuParticleAttributes() {
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, cpuParticleVbo);
+
+        int stride = ParticleBuffer.PARTICLE_SIZE_BYTES;
+
+        // location 2: position (vec4)
+        GL20.glVertexAttribPointer(2, 4, GL11.GL_FLOAT, false, stride, ParticleBuffer.OFFSET_POSITION);
+        GL20.glEnableVertexAttribArray(2);
+        GL33.glVertexAttribDivisor(2, 1);
+
+        // location 3: velocity (vec4)
+        GL20.glVertexAttribPointer(3, 4, GL11.GL_FLOAT, false, stride, ParticleBuffer.OFFSET_VELOCITY);
+        GL20.glEnableVertexAttribArray(3);
+        GL33.glVertexAttribDivisor(3, 1);
+
+        // location 4: color (vec4)
+        GL20.glVertexAttribPointer(4, 4, GL11.GL_FLOAT, false, stride, ParticleBuffer.OFFSET_COLOR);
+        GL20.glEnableVertexAttribArray(4);
+        GL33.glVertexAttribDivisor(4, 1);
+
+        // location 5: params (vec4)
+        GL20.glVertexAttribPointer(5, 4, GL11.GL_FLOAT, false, stride, ParticleBuffer.OFFSET_PARAMS);
+        GL20.glEnableVertexAttribArray(5);
+        GL33.glVertexAttribDivisor(5, 1);
     }
 
     /**
@@ -673,6 +830,11 @@ public class ParticleRenderer {
         if (quadVbo != 0) {
             GL15.glDeleteBuffers(quadVbo);
             quadVbo = 0;
+        }
+        if (cpuParticleVbo != 0) {
+            GL15.glDeleteBuffers(cpuParticleVbo);
+            cpuParticleVbo = 0;
+            cpuParticleVboCapacity = 0;
         }
         if (shader != null) {
             shader.close();

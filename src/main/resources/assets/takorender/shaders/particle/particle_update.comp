@@ -59,6 +59,14 @@ uniform float uForces[192]; // 16 * 12 floats
 // Collision plane params
 uniform vec4 uCollisionPlane; // xyz: normal, w: distance
 
+// Collision sphere params
+uniform vec3 uCollisionSphereCenter;
+uniform float uCollisionSphereRadius;
+
+// Collision box params
+uniform vec3 uCollisionBoxMin;
+uniform vec3 uCollisionBoxMax;
+
 // Velocity over lifetime curve (max 16 keyframes)
 uniform int uVelocityOverLifetimeEnabled;
 uniform int uVelocityOverLifetimeKeyCount;
@@ -396,6 +404,65 @@ bool checkPlaneCollision(vec3 pos, vec3 vel, vec4 plane, out vec3 hitPoint, out 
     return false;
 }
 
+bool checkSphereCollision(vec3 pos, vec3 center, float radius, out vec3 hitPoint, out vec3 normal) {
+    vec3 diff = pos - center;
+    float dist = length(diff);
+    if (dist < radius) {
+        normal = normalize(diff);
+        hitPoint = center + normal * radius;
+        return true;
+    }
+    return false;
+}
+
+bool checkBoxCollision(vec3 pos, vec3 boxMin, vec3 boxMax, out vec3 hitPoint, out vec3 normal) {
+    // Check if inside box
+    if (pos.x > boxMin.x && pos.x < boxMax.x &&
+        pos.y > boxMin.y && pos.y < boxMax.y &&
+        pos.z > boxMin.z && pos.z < boxMax.z) {
+
+        // Find closest face
+        float dxMin = pos.x - boxMin.x;
+        float dxMax = boxMax.x - pos.x;
+        float dyMin = pos.y - boxMin.y;
+        float dyMax = boxMax.y - pos.y;
+        float dzMin = pos.z - boxMin.z;
+        float dzMax = boxMax.z - pos.z;
+
+        float minDist = dxMin;
+        normal = vec3(-1.0, 0.0, 0.0);
+        hitPoint = vec3(boxMin.x, pos.y, pos.z);
+
+        if (dxMax < minDist) {
+            minDist = dxMax;
+            normal = vec3(1.0, 0.0, 0.0);
+            hitPoint = vec3(boxMax.x, pos.y, pos.z);
+        }
+        if (dyMin < minDist) {
+            minDist = dyMin;
+            normal = vec3(0.0, -1.0, 0.0);
+            hitPoint = vec3(pos.x, boxMin.y, pos.z);
+        }
+        if (dyMax < minDist) {
+            minDist = dyMax;
+            normal = vec3(0.0, 1.0, 0.0);
+            hitPoint = vec3(pos.x, boxMax.y, pos.z);
+        }
+        if (dzMin < minDist) {
+            minDist = dzMin;
+            normal = vec3(0.0, 0.0, -1.0);
+            hitPoint = vec3(pos.x, pos.y, boxMin.z);
+        }
+        if (dzMax < minDist) {
+            normal = vec3(0.0, 0.0, 1.0);
+            hitPoint = vec3(pos.x, pos.y, boxMax.z);
+        }
+
+        return true;
+    }
+    return false;
+}
+
 void handleCollision(inout Particle p, vec3 normal, int response, float bounciness, uint particleIdx) {
     switch (response) {
         case RESPONSE_KILL:
@@ -492,10 +559,18 @@ void main() {
     p.params.y += (baseAngularVelocity + additionalAngularVelocity) * uDeltaTime;
 
     // Collision detection
+    vec3 hitPoint, colNormal;
     if (uCollisionMode == COLLISION_PLANE) {
-        vec3 hitPoint, normal;
-        if (checkPlaneCollision(p.position.xyz, p.velocity.xyz, uCollisionPlane, hitPoint, normal)) {
-            handleCollision(p, normal, uCollisionResponse, uBounciness, idx);
+        if (checkPlaneCollision(p.position.xyz, p.velocity.xyz, uCollisionPlane, hitPoint, colNormal)) {
+            handleCollision(p, colNormal, uCollisionResponse, uBounciness, idx);
+        }
+    } else if (uCollisionMode == COLLISION_SPHERE) {
+        if (checkSphereCollision(p.position.xyz, uCollisionSphereCenter, uCollisionSphereRadius, hitPoint, colNormal)) {
+            handleCollision(p, colNormal, uCollisionResponse, uBounciness, idx);
+        }
+    } else if (uCollisionMode == COLLISION_BOX) {
+        if (checkBoxCollision(p.position.xyz, uCollisionBoxMin, uCollisionBoxMax, hitPoint, colNormal)) {
+            handleCollision(p, colNormal, uCollisionResponse, uBounciness, idx);
         }
     }
 

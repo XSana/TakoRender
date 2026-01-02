@@ -12,6 +12,19 @@ import moe.takochan.takorender.core.particle.ParticleCPU;
  * <p>
  * 存储粒子 GPU/CPU 缓冲区配置和状态。逻辑由 System 处理。
  * </p>
+ *
+ * <p>
+ * <b>兼容性设计</b>:
+ * </p>
+ * <ul>
+ * <li>GPU 模式: 使用 SSBO + Compute Shader (OpenGL 4.3+)</li>
+ * <li>CPU 模式: 使用 ParticleCPU 回退实现 (macOS 等不支持 Compute Shader 的系统)</li>
+ * </ul>
+ *
+ * <p>
+ * ParticleEmitSystem 会在初始化时检测 SSBO 支持情况，自动选择合适的模式。
+ * 当 useCPUFallback=true 时，物理更新和渲染都使用 CPU 实现。
+ * </p>
  */
 @SideOnly(Side.CLIENT)
 public class ParticleBufferComponent extends Component {

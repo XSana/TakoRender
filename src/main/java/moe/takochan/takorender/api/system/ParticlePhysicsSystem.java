@@ -23,6 +23,15 @@ import moe.takochan.takorender.core.particle.ParticleCompute;
  * 处理力场、碰撞、速度/旋转曲线。
  * 在 UPDATE 阶段执行，优先级低于 ParticleEmitSystem。
  * </p>
+ *
+ * <p>
+ * <b>兼容性说明</b>:
+ * </p>
+ * <ul>
+ * <li>GPU 模式: 使用 Compute Shader 进行并行物理计算 (OpenGL 4.3+)</li>
+ * <li>CPU 模式: 使用 ParticleCPU 进行串行物理计算 (macOS 等)</li>
+ * <li>CPU 模式支持简化的力场和曲线，但不支持碰撞检测和子发射器</li>
+ * </ul>
  */
 @SideOnly(Side.CLIENT)
 @RequiresComponent({ ParticleEmitterComponent.class, ParticleBufferComponent.class, ParticleStateComponent.class,
@@ -109,14 +118,43 @@ public class ParticlePhysicsSystem extends GameSystem {
             emitter.getCollisionPlaneNY(),
             emitter.getCollisionPlaneNZ(),
             emitter.getCollisionPlaneD(),
+            emitter.getCollisionSphereCenterX(),
+            emitter.getCollisionSphereCenterY(),
+            emitter.getCollisionSphereCenterZ(),
+            emitter.getCollisionSphereRadius(),
+            emitter.getCollisionBoxMinX(),
+            emitter.getCollisionBoxMinY(),
+            emitter.getCollisionBoxMinZ(),
+            emitter.getCollisionBoxMaxX(),
+            emitter.getCollisionBoxMaxY(),
+            emitter.getCollisionBoxMaxZ(),
             emitter.getVelocityOverLifetime(),
             emitter.getRotationOverLifetime(),
             maxDeadParticles);
 
         int aliveCount = gpuBuffer.readAtomicCounter();
         state.setAliveCount(aliveCount);
+
+        if (gpuBuffer.getMaxDeadParticles() > 0) {
+            int deadCount = gpuBuffer.readDeadCounter();
+            if (deadCount > 0) {
+                float[] deadData = gpuBuffer.readDeadParticles(deadCount);
+                state.setDeadParticleData(deadData);
+                state.setDeadParticleCount(deadCount);
+            } else {
+                state.setDeadParticleCount(0);
+            }
+        }
     }
 
+    /**
+     * CPU 物理更新（回退模式）
+     *
+     * <p>
+     * 支持: 重力、风力、阻力、吸引/排斥、湍流、速度曲线、旋转曲线。
+     * 不支持: 碰撞检测、子发射器触发。
+     * </p>
+     */
     private void updateCPU(ParticleEmitterComponent emitter, ParticleBufferComponent buffer,
         ParticleStateComponent state, float deltaTime) {
 

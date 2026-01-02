@@ -56,11 +56,15 @@ public class ParticleStateComponent extends Component {
     /** 是否已完成（非循环模式） */
     private boolean completed;
 
+    /** 死亡粒子数据（子发射器用）: [x, y, z, velocityMag, ...] */
+    private float[] deadParticleData;
+
+    /** 死亡粒子数量 */
+    private int deadParticleCount;
+
     public ParticleStateComponent() {
         this.randomSeed = (int) System.nanoTime();
     }
-
-    // ==================== 时间状态 ====================
 
     public float getSystemTime() {
         return systemTime;
@@ -68,10 +72,6 @@ public class ParticleStateComponent extends Component {
 
     public void setSystemTime(float systemTime) {
         this.systemTime = systemTime;
-    }
-
-    public void addTime(float deltaTime) {
-        this.systemTime += deltaTime;
     }
 
     public boolean isPaused() {
@@ -101,8 +101,6 @@ public class ParticleStateComponent extends Component {
         return this;
     }
 
-    // ==================== 粒子计数 ====================
-
     public int getAliveCount() {
         return aliveCount;
     }
@@ -110,8 +108,6 @@ public class ParticleStateComponent extends Component {
     public void setAliveCount(int aliveCount) {
         this.aliveCount = aliveCount;
     }
-
-    // ==================== 位置追踪 ====================
 
     public float getLastPosX() {
         return lastPosX;
@@ -143,18 +139,12 @@ public class ParticleStateComponent extends Component {
         this.lastPosZ = z;
     }
 
-    // ==================== 发射累积器 ====================
-
     public float getEmissionAccumulator() {
         return emissionAccumulator;
     }
 
     public void setEmissionAccumulator(float emissionAccumulator) {
         this.emissionAccumulator = emissionAccumulator;
-    }
-
-    public void addEmissionAccumulator(float delta) {
-        this.emissionAccumulator += delta;
     }
 
     public float getBurstAccumulator() {
@@ -165,10 +155,6 @@ public class ParticleStateComponent extends Component {
         this.burstAccumulator = burstAccumulator;
     }
 
-    public void addBurstAccumulator(float delta) {
-        this.burstAccumulator += delta;
-    }
-
     public boolean isInitialBurstTriggered() {
         return initialBurstTriggered;
     }
@@ -177,18 +163,12 @@ public class ParticleStateComponent extends Component {
         this.initialBurstTriggered = initialBurstTriggered;
     }
 
-    // ==================== 随机/状态 ====================
-
     public int getRandomSeed() {
         return randomSeed;
     }
 
     public void setRandomSeed(int randomSeed) {
         this.randomSeed = randomSeed;
-    }
-
-    public void nextRandomSeed() {
-        this.randomSeed++;
     }
 
     public boolean isStarted() {
@@ -207,41 +187,20 @@ public class ParticleStateComponent extends Component {
         this.completed = completed;
     }
 
-    // ==================== 控制方法 ====================
-
-    /**
-     * 重置状态
-     */
-    public void reset() {
-        this.systemTime = 0;
-        this.emissionAccumulator = 0;
-        this.burstAccumulator = 0;
-        this.initialBurstTriggered = false;
-        this.started = false;
-        this.completed = false;
-        this.aliveCount = 0;
+    public float[] getDeadParticleData() {
+        return deadParticleData;
     }
 
-    /**
-     * 暂停
-     */
-    public void pause() {
-        this.paused = true;
+    public void setDeadParticleData(float[] deadParticleData) {
+        this.deadParticleData = deadParticleData;
     }
 
-    /**
-     * 恢复
-     */
-    public void resume() {
-        this.paused = false;
+    public int getDeadParticleCount() {
+        return deadParticleCount;
     }
 
-    /**
-     * 停止
-     */
-    public void stop() {
-        this.paused = true;
-        this.completed = true;
+    public void setDeadParticleCount(int deadParticleCount) {
+        this.deadParticleCount = deadParticleCount;
     }
 
     @Override

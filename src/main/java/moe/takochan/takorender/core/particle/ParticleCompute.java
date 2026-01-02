@@ -53,6 +53,12 @@ public class ParticleCompute {
     /** 计数器绑定点 */
     public static final int COUNTER_BINDING = 1;
 
+    /** 死亡粒子 SSBO 绑定点（用于子发射器） */
+    public static final int DEAD_BUFFER_BINDING = 2;
+
+    /** 死亡粒子计数器绑定点 */
+    public static final int DEAD_COUNTER_BINDING = 3;
+
     /** 随机种子计数器 */
     private int randomSeedCounter = 0;
 
@@ -207,6 +213,16 @@ public class ParticleCompute {
             planeNY,
             planeNZ,
             planeD,
+            0,
+            0,
+            0,
+            1,
+            -1,
+            -1,
+            -1,
+            1,
+            1,
+            1,
             null,
             null,
             0);
@@ -227,14 +243,26 @@ public class ParticleCompute {
      * @param planeNY           碰撞平面法向 Y
      * @param planeNZ           碰撞平面法向 Z
      * @param planeD            碰撞平面距离
+     * @param sphereCX          碰撞球心 X
+     * @param sphereCY          碰撞球心 Y
+     * @param sphereCZ          碰撞球心 Z
+     * @param sphereR           碰撞球半径
+     * @param boxMinX           碰撞盒最小 X
+     * @param boxMinY           碰撞盒最小 Y
+     * @param boxMinZ           碰撞盒最小 Z
+     * @param boxMaxX           碰撞盒最大 X
+     * @param boxMaxY           碰撞盒最大 Y
+     * @param boxMaxZ           碰撞盒最大 Z
      * @param velocityOverLife  速度曲线（可为 null）
      * @param rotationOverLife  旋转曲线（可为 null）
      * @param maxDeadParticles  最大死亡粒子追踪数（0=禁用子发射器）
      */
     public void dispatchUpdateWithCurves(ParticleBuffer buffer, float deltaTime, List<ParticleForce> forces,
         CollisionMode collisionMode, CollisionResponse collisionResponse, float bounciness, float bounceChance,
-        float bounceSpread, float planeNX, float planeNY, float planeNZ, float planeD,
-        VelocityOverLifetime velocityOverLife, RotationOverLifetime rotationOverLife, int maxDeadParticles) {
+        float bounceSpread, float planeNX, float planeNY, float planeNZ, float planeD, float sphereCX, float sphereCY,
+        float sphereCZ, float sphereR, float boxMinX, float boxMinY, float boxMinZ, float boxMaxX, float boxMaxY,
+        float boxMaxZ, VelocityOverLifetime velocityOverLife, RotationOverLifetime rotationOverLife,
+        int maxDeadParticles) {
 
         if (!initialized || updateShader == null) {
             return;
@@ -258,6 +286,10 @@ public class ParticleCompute {
         setUniform("uBounceSpread", bounceSpread);
         setUniform("uRandomSeed", randomSeedCounter);
         setUniform("uCollisionPlane", planeNX, planeNY, planeNZ, planeD);
+        setUniform("uCollisionSphereCenter", sphereCX, sphereCY, sphereCZ);
+        setUniform("uCollisionSphereRadius", sphereR);
+        setUniform("uCollisionBoxMin", boxMinX, boxMinY, boxMinZ);
+        setUniform("uCollisionBoxMax", boxMaxX, boxMaxY, boxMaxZ);
         setUniform("uMaxDeadParticles", maxDeadParticles);
 
         int forceCount = Math.min(forces != null ? forces.size() : 0, MAX_FORCES);
@@ -332,6 +364,11 @@ public class ParticleCompute {
 
         buffer.bindToCompute(PARTICLE_SSBO_BINDING);
         buffer.bindAtomicCounter(COUNTER_BINDING);
+
+        if (maxDeadParticles > 0 && buffer.getMaxDeadParticles() > 0) {
+            buffer.resetDeadCounter();
+            buffer.bindDeadBuffers(DEAD_BUFFER_BINDING, DEAD_COUNTER_BINDING);
+        }
 
         int workGroups = (particleCount + WORK_GROUP_SIZE - 1) / WORK_GROUP_SIZE;
         updateShader.dispatch(workGroups, 1, 1);
