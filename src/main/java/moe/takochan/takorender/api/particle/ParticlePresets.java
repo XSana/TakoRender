@@ -53,13 +53,14 @@ public final class ParticlePresets {
             new ParticleEmitterComponent().setShape(EmitterShape.CIRCLE, 0.3f * intensity)
                 .setRate(100 * intensity)
                 .setLifetime(0.5f, 1.5f)
-                .setVelocity(0, 2 * intensity, 0)
+                .setVelocity(0, 3f * intensity, 0)
                 .setVelocityVariation(0.3f)
                 .setSize(0.1f, 0.3f)
                 .setColorOverLifetime(ColorOverLifetime.fire())
                 .setSizeOverLifetime(SizeOverLifetime.shrink())
+                .setVelocityOverLifetime(VelocityOverLifetime.smoke())
                 .addForce(ParticleForce.turbulence(2.0f, 1.0f * intensity))
-                .addForce(ParticleForce.gravity(0, -5f, 0)));
+                .addForce(ParticleForce.gravity(0, -2f, 0)));
 
         entity.addComponent(
             new ParticleRenderComponent().setBlendMode(BlendMode.ADDITIVE)
@@ -86,6 +87,7 @@ public final class ParticlePresets {
                 .setSize(0.05f, 0.1f)
                 .setColorOverLifetime(ColorOverLifetime.fire())
                 .setSizeOverLifetime(SizeOverLifetime.shrink())
+                .setVelocityOverLifetime(VelocityOverLifetime.smoke())
                 .addForce(ParticleForce.turbulence(3.0f, 0.5f)));
 
         entity.addComponent(
@@ -114,6 +116,7 @@ public final class ParticlePresets {
                 .setSize(0.2f, 0.5f)
                 .setColorOverLifetime(ColorOverLifetime.smoke())
                 .setSizeOverLifetime(SizeOverLifetime.smoke())
+                .setVelocityOverLifetime(VelocityOverLifetime.smoke())
                 .addForce(ParticleForce.turbulence(1.0f, 0.3f))
                 .addForce(ParticleForce.wind(0.5f, 0, 0, 0.3f, 0.2f)));
 
@@ -137,13 +140,14 @@ public final class ParticlePresets {
             new ParticleEmitterComponent().setShape(EmitterShape.SPHERE, 0.1f * scale)
                 .setBurst((int) (300 * scale))
                 .setLifetime(0.3f, 1.5f)
-                .setSpeed(10f * scale)
+                .setSpeed(12f * scale)
                 .setVelocityVariation(0.4f)
                 .setSize(0.2f * scale, 0.5f * scale)
                 .setColorOverLifetime(ColorOverLifetime.explosion())
                 .setSizeOverLifetime(SizeOverLifetime.explosion())
-                .addForce(ParticleForce.drag(1.5f))
-                .addForce(ParticleForce.gravity(0, -5f, 0)));
+                .setVelocityOverLifetime(VelocityOverLifetime.explosion())
+                .addForce(ParticleForce.drag(2.0f))
+                .addForce(ParticleForce.gravity(0, -3f, 0)));
 
         entity.addComponent(
             new ParticleRenderComponent().setBlendMode(BlendMode.ADDITIVE)
@@ -177,6 +181,7 @@ public final class ParticlePresets {
                 .setColor(r, g, b, 1.0f)
                 .setColorOverLifetime(ColorOverLifetime.energy())
                 .setSizeOverLifetime(SizeOverLifetime.converge())
+                .setRotationOverLifetime(RotationOverLifetime.spin())
                 .addForce(ParticleForce.attractor(0, 0, 0, 5.0f, 2.0f))
                 .addForce(ParticleForce.vortexY(0, 0, 0, 3.0f)));
 
@@ -203,6 +208,7 @@ public final class ParticlePresets {
                 .setSize(0.08f, 0.12f)
                 .setColorOverLifetime(ColorOverLifetime.portal())
                 .setSizeOverLifetime(SizeOverLifetime.pulse())
+                .setRotationOverLifetime(RotationOverLifetime.slow())
                 .addForce(ParticleForce.vortexY(0, 0, 0, 5.0f))
                 .addForce(ParticleForce.curlNoise(2.0f, 0.5f)));
 
@@ -230,6 +236,7 @@ public final class ParticlePresets {
                 .setSize(0.1f, 0.2f)
                 .setColorOverLifetime(ColorOverLifetime.healing())
                 .setSizeOverLifetime(SizeOverLifetime.pulse())
+                .setVelocityOverLifetime(VelocityOverLifetime.float_())
                 .addForce(ParticleForce.turbulence(1.5f, 0.3f)));
 
         entity.addComponent(
@@ -287,6 +294,7 @@ public final class ParticlePresets {
                 .setSize(0.05f, 0.15f)
                 .setColor(1.0f, 1.0f, 1.0f, 0.8f)
                 .setAngularVelocity(-1.0f, 1.0f)
+                .setRotationOverLifetime(RotationOverLifetime.leaf())
                 .addForce(ParticleForce.turbulence(0.5f, 0.5f))
                 .addForce(ParticleForce.wind(0.3f, 0, 0.2f, 0.3f, 0.2f)));
 
@@ -307,13 +315,14 @@ public final class ParticlePresets {
             new ParticleEmitterComponent().setShape(EmitterShape.CONE, 0.05f, 0.5f, 0.1f)
                 .setRate(100)
                 .setLifetime(0.3f, 0.8f)
-                .setSpeed(5.0f)
+                .setSpeed(6.0f)
                 .setVelocityVariation(0.5f)
                 .setSize(0.02f, 0.05f)
                 .setColor(1.0f, 0.8f, 0.3f, 1.0f)
                 .setSizeOverLifetime(SizeOverLifetime.spark())
+                .setVelocityOverLifetime(VelocityOverLifetime.spark())
                 .addForce(ParticleForce.gravity(0, -9.8f, 0))
-                .addForce(ParticleForce.drag(0.5f)));
+                .addForce(ParticleForce.drag(0.3f)));
 
         entity.addComponent(
             new ParticleRenderComponent().setBlendMode(BlendMode.ADDITIVE)
@@ -345,6 +354,7 @@ public final class ParticlePresets {
                 .setColor(r, g, b, 0.8f)
                 .setColorOverLifetime(ColorOverLifetime.fadeOut())
                 .setSizeOverLifetime(SizeOverLifetime.pulse())
+                .setVelocityOverLifetime(VelocityOverLifetime.pulse())
                 .addForce(ParticleForce.vortexY(0, 0, 0, 1.0f)));
 
         entity.addComponent(
@@ -372,6 +382,7 @@ public final class ParticlePresets {
                 .setSize(0.05f * scale, 0.15f * scale)
                 .setColorOverLifetime(ColorOverLifetime.water())
                 .setSizeOverLifetime(SizeOverLifetime.shrink())
+                .setVelocityOverLifetime(VelocityOverLifetime.fastDecelerate())
                 .addForce(ParticleForce.gravity(0, -9.8f, 0))
                 .addForce(ParticleForce.drag(0.3f)));
 
@@ -399,6 +410,7 @@ public final class ParticlePresets {
                 .setSize(0.05f, 0.15f)
                 .setColor(0.8f, 0.9f, 1.0f, 0.5f)
                 .setSizeOverLifetime(SizeOverLifetime.bubble())
+                .setVelocityOverLifetime(VelocityOverLifetime.slowDecelerate())
                 .addForce(ParticleForce.turbulence(1.0f, 0.3f)));
 
         entity.addComponent(new ParticleRenderComponent().setBlendMode(BlendMode.ALPHA));
@@ -422,7 +434,8 @@ public final class ParticlePresets {
                 .setVelocityVariation(0.8f)
                 .setSize(0.02f, 0.05f)
                 .setColorOverLifetime(ColorOverLifetime.lightning())
-                .setSizeOverLifetime(SizeOverLifetime.flicker()));
+                .setSizeOverLifetime(SizeOverLifetime.flicker())
+                .setRotationOverLifetime(RotationOverLifetime.erratic()));
 
         entity.addComponent(
             new ParticleRenderComponent().setBlendMode(BlendMode.ADDITIVE)
@@ -443,11 +456,12 @@ public final class ParticlePresets {
             new ParticleEmitterComponent().setShape(EmitterShape.CIRCLE, 0.1f)
                 .setRate(50)
                 .setLifetime(1.0f, 2.5f)
-                .setVelocity(0, 2.0f, 0)
+                .setVelocity(0, 2.5f, 0)
                 .setVelocityVariation(0.3f)
                 .setSize(0.1f, 0.3f)
                 .setColor(1.0f, 1.0f, 1.0f, 0.4f)
                 .setSizeOverLifetime(SizeOverLifetime.smoke())
+                .setVelocityOverLifetime(VelocityOverLifetime.smoke())
                 .addForce(ParticleForce.turbulence(1.5f, 0.5f)));
 
         entity.addComponent(
@@ -470,13 +484,15 @@ public final class ParticlePresets {
             new ParticleEmitterComponent().setShape(EmitterShape.SPHERE, 0.2f * scale)
                 .setBurst((int) (100 * scale))
                 .setLifetime(2.0f, 4.0f)
-                .setSpeed(8f * scale)
+                .setSpeed(10f * scale)
                 .setVelocityVariation(0.5f)
                 .setSize(0.08f * scale, 0.2f * scale)
                 .setColor(0.6f, 0.5f, 0.4f, 1.0f)
                 .setAngularVelocity(-5.0f, 5.0f)
+                .setVelocityOverLifetime(VelocityOverLifetime.decelerate())
+                .setRotationOverLifetime(RotationOverLifetime.debris())
                 .addForce(ParticleForce.gravity(0, -9.8f, 0))
-                .addForce(ParticleForce.drag(0.3f)));
+                .addForce(ParticleForce.drag(0.2f)));
 
         entity.addComponent(
             new ParticleRenderComponent().setBlendMode(BlendMode.ALPHA)
