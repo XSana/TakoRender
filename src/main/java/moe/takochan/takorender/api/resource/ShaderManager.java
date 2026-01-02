@@ -1,7 +1,11 @@
 package moe.takochan.takorender.api.resource;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
 
@@ -48,6 +52,34 @@ import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
 public class ShaderManager extends ResourceManager<ShaderProgram> {
 
     private static final String SHADER_BASE_PATH = "shaders/";
+    private static final String D = Reference.MODID + ":";
+
+    /** Core batch shaders */
+    public static final String SHADER_GUI_COLOR = D + "core/gui_color";
+    public static final String SHADER_WORLD3D = D + "core/world3d";
+    public static final String SHADER_WORLD3D_LIT = D + "core/world3d_lit";
+    public static final String SHADER_LINE = D + "core/line";
+
+    /** Post-process shaders */
+    public static final String SHADER_BRIGHTNESS_EXTRACT = D + "postprocess/brightness_extract";
+    public static final String SHADER_BLUR = D + "postprocess/blur";
+    public static final String SHADER_COMPOSITE = D + "postprocess/composite";
+
+    /** Particle shaders */
+    public static final String SHADER_PARTICLE = D + "particle/particle";
+    public static final String SHADER_PARTICLE_MESH = D + "particle/particle_mesh";
+    public static final String SHADER_PARTICLE_UPDATE = D + "particle/particle_update:compute";
+    public static final String SHADER_PARTICLE_EMIT = D + "particle/particle_emit:compute";
+
+    /** 框架内置着色器 */
+    private static final String[] BUILTIN_SHADERS = { SHADER_GUI_COLOR, SHADER_WORLD3D, SHADER_WORLD3D_LIT, SHADER_LINE,
+        SHADER_BRIGHTNESS_EXTRACT, SHADER_BLUR, SHADER_COMPOSITE, SHADER_PARTICLE, SHADER_PARTICLE_MESH, };
+
+    /** 框架内置 Compute Shader（需要 OpenGL 4.3+） */
+    private static final String[] BUILTIN_COMPUTE_SHADERS = { SHADER_PARTICLE_UPDATE, SHADER_PARTICLE_EMIT, };
+
+    /** 用户注册的着色器键 */
+    private final Set<String> registered = new LinkedHashSet<>();
 
     private static ShaderManager INSTANCE;
 
@@ -144,5 +176,79 @@ public class ShaderManager extends ResourceManager<ShaderProgram> {
             INSTANCE.dispose();
             INSTANCE = null;
         }
+    }
+
+    /**
+     * 注册用户着色器以便预加载
+     *
+     * <p>
+     * 在 Mod 初始化时调用此方法注册着色器，然后调用 {@link #preloadAll()} 批量编译。
+     * </p>
+     *
+     * @param key 着色器资源键（格式：domain:path 或 domain:path:compute）
+     */
+    public void register(String key) {
+        if (key != null && !key.isEmpty()) {
+            registered.add(key);
+        }
+    }
+
+    /**
+     * 预加载所有着色器（框架内置 + 用户注册）
+     *
+     * <p>
+     * 在 Mod 初始化阶段（如 postInit）调用，批量编译着色器避免首帧卡顿。
+     * </p>
+     *
+     * @param includeComputeShaders 是否包含 Compute Shader（需要 OpenGL 4.3+）
+     */
+    public void preloadAll(boolean includeComputeShaders) {
+        int[] counts = { 0, 0 }; // [loaded, failed]
+
+        preloadBuiltin(BUILTIN_SHADERS, counts);
+        if (includeComputeShaders) {
+            preloadBuiltin(BUILTIN_COMPUTE_SHADERS, counts);
+        }
+        preloadKeys(registered, counts);
+
+        TakoRenderMod.LOG.info("ShaderManager: Preloaded {} shaders ({} failed)", counts[0], counts[1]);
+    }
+
+    private void preloadBuiltin(String[] keys, int[] counts) {
+        for (String key : keys) {
+            if (tryPreload(key)) {
+                counts[0]++;
+            } else {
+                counts[1]++;
+                TakoRenderMod.LOG.warn("Failed to preload shader: {}", key);
+            }
+        }
+    }
+
+    private void preloadKeys(Iterable<String> keys, int[] counts) {
+        for (String key : keys) {
+            if (tryPreload(key)) {
+                counts[0]++;
+            } else {
+                counts[1]++;
+                TakoRenderMod.LOG.warn("Failed to preload shader: {}", key);
+            }
+        }
+    }
+
+    private boolean tryPreload(String key) {
+        ResourceHandle<ShaderProgram> handle = get(key);
+        if (handle != null && handle.isValid()) {
+            handle.release();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 预加载所有着色器（包含 Compute Shader）
+     */
+    public void preloadAll() {
+        preloadAll(true);
     }
 }

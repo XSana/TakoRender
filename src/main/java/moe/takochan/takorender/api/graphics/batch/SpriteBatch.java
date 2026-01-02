@@ -8,7 +8,6 @@ import org.lwjgl.opengl.GL20;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.api.graphics.mesh.DynamicMesh;
 import moe.takochan.takorender.api.graphics.mesh.VertexFormat;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
@@ -61,7 +60,7 @@ public class SpriteBatch implements AutoCloseable {
     /** 默认最大四边形数量 */
     private static final int DEFAULT_MAX_QUADS = 256;
     /** Shader 资源键 */
-    private static final String SHADER_KEY = Reference.MODID + ":core/gui_color";
+    private static final String SHADER_KEY = ShaderManager.SHADER_GUI_COLOR;
 
     private final int maxQuads;
     private final DynamicMesh mesh;

@@ -9,7 +9,6 @@ import org.lwjgl.opengl.GL20;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
 import moe.takochan.takorender.api.particle.AnimationCurve;
@@ -33,8 +32,8 @@ import moe.takochan.takorender.api.resource.ShaderManager;
 public class ParticleCompute {
 
     /** Shader 资源键 */
-    private static final String SHADER_UPDATE = Reference.MODID + ":particle/particle_update:compute";
-    private static final String SHADER_EMIT = Reference.MODID + ":particle/particle_emit:compute";
+    private static final String SHADER_UPDATE = ShaderManager.SHADER_PARTICLE_UPDATE;
+    private static final String SHADER_EMIT = ShaderManager.SHADER_PARTICLE_EMIT;
 
     /** 粒子更新着色器句柄 */
     private ResourceHandle<ShaderProgram> updateShaderHandle;

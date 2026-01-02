@@ -2,6 +2,8 @@ package moe.takochan.takorender.api.resource;
 
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import javax.imageio.ImageIO;
 
@@ -58,6 +60,9 @@ import moe.takochan.takorender.TakoRenderMod;
 public class TextureManager extends ResourceManager<Integer> {
 
     private static final String TEXTURE_BASE_PATH = "textures/";
+
+    /** 用户注册的纹理键 */
+    private final Set<String> registered = new LinkedHashSet<>();
 
     private static TextureManager INSTANCE;
 
@@ -165,5 +170,50 @@ public class TextureManager extends ResourceManager<Integer> {
             INSTANCE.dispose();
             INSTANCE = null;
         }
+    }
+
+    /**
+     * 注册纹理以便预加载
+     *
+     * <p>
+     * 在 Mod 初始化时调用此方法注册纹理，然后调用 {@link #preloadAll()} 批量加载。
+     * </p>
+     *
+     * @param key 纹理资源键（格式：domain:path 或 domain:path:nofilter）
+     */
+    public void register(String key) {
+        if (key != null && !key.isEmpty()) {
+            registered.add(key);
+        }
+    }
+
+    /**
+     * 预加载所有已注册的纹理
+     *
+     * <p>
+     * 在 Mod 初始化阶段调用，批量加载纹理避免首次使用时卡顿。
+     * </p>
+     */
+    public void preloadAll() {
+        if (registered.isEmpty()) {
+            TakoRenderMod.LOG.debug("TextureManager: No textures registered for preload");
+            return;
+        }
+
+        int loaded = 0;
+        int failed = 0;
+
+        for (String key : registered) {
+            ResourceHandle<Integer> handle = get(key);
+            if (handle != null && handle.isValid()) {
+                loaded++;
+                handle.release();
+            } else {
+                failed++;
+                TakoRenderMod.LOG.warn("Failed to preload texture: {}", key);
+            }
+        }
+
+        TakoRenderMod.LOG.info("TextureManager: Preloaded {} textures ({} failed)", loaded, failed);
     }
 }

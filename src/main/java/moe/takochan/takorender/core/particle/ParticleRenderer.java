@@ -16,7 +16,6 @@ import org.lwjgl.opengl.GL33;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
 import moe.takochan.takorender.api.resource.ResourceHandle;
@@ -43,8 +42,8 @@ import moe.takochan.takorender.core.gl.GLStateContext;
 public class ParticleRenderer {
 
     /** Shader 资源键 */
-    private static final String SHADER_PARTICLE = Reference.MODID + ":particle/particle";
-    private static final String SHADER_PARTICLE_MESH = Reference.MODID + ":particle/particle_mesh";
+    private static final String SHADER_PARTICLE = ShaderManager.SHADER_PARTICLE;
+    private static final String SHADER_PARTICLE_MESH = ShaderManager.SHADER_PARTICLE_MESH;
 
     /** 渲染模式 */
     public enum RenderMode {

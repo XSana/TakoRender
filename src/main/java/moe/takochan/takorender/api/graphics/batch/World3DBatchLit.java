@@ -9,7 +9,6 @@ import org.lwjgl.opengl.GL20;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.api.graphics.mesh.DynamicMesh;
 import moe.takochan.takorender.api.graphics.mesh.VertexAttribute;
 import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
@@ -67,7 +66,7 @@ public class World3DBatchLit implements AutoCloseable {
     /** 默认最大顶点数 */
     private static final int DEFAULT_MAX_VERTICES = 8192;
     /** Shader 资源键 */
-    private static final String SHADER_KEY = Reference.MODID + ":core/world3d_lit";
+    private static final String SHADER_KEY = ShaderManager.SHADER_WORLD3D_LIT;
 
     /**
      * 顶点格式: 位置(3) + 颜色(4) + 光照坐标(2) + 法线(3)

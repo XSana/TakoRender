@@ -13,7 +13,6 @@ import org.lwjgl.opengl.GL30;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
-import moe.takochan.takorender.Reference;
 import moe.takochan.takorender.api.component.CameraComponent;
 import moe.takochan.takorender.api.component.PostProcessComponent;
 import moe.takochan.takorender.api.ecs.Entity;
@@ -58,9 +57,9 @@ import moe.takochan.takorender.core.gl.GLStateContext;
 public class PostProcessSystem extends GameSystem {
 
     /** Shader 资源键 */
-    private static final String SHADER_BRIGHTNESS = Reference.MODID + ":postprocess/brightness_extract";
-    private static final String SHADER_BLUR = Reference.MODID + ":postprocess/blur";
-    private static final String SHADER_COMPOSITE = Reference.MODID + ":postprocess/composite";
+    private static final String SHADER_BRIGHTNESS = ShaderManager.SHADER_BRIGHTNESS_EXTRACT;
+    private static final String SHADER_BLUR = ShaderManager.SHADER_BLUR;
+    private static final String SHADER_COMPOSITE = ShaderManager.SHADER_COMPOSITE;
 
     /** 场景渲染目标（全分辨率） */
     private FrameBuffer sceneFbo;
