@@ -129,6 +129,15 @@ public class MeshRenderSystem extends GameSystem {
         projMatrixBuffer.clear();
         projMatrix.get(projMatrixBuffer);
 
+        // 获取后处理系统（如果存在）
+        PostProcessSystem postProcess = getWorld().getSystem(PostProcessSystem.class);
+        boolean usePostProcess = postProcess != null && postProcess.isEnabled() && postProcess.isInitialized();
+
+        // 开始后处理捕获（如果启用）
+        if (usePostProcess) {
+            postProcess.beginCapture();
+        }
+
         // 使用 GLStateContext 管理 GL 状态
         try (GLStateContext ctx = GLStateContext.begin()) {
             ctx.enableDepthTest();
@@ -141,6 +150,11 @@ public class MeshRenderSystem extends GameSystem {
             renderQueue(RenderQueue.OPAQUE, ctx);
             renderQueue(RenderQueue.TRANSPARENT, ctx);
             renderQueue(RenderQueue.OVERLAY, ctx);
+        }
+
+        // 结束后处理捕获（如果启用）
+        if (usePostProcess) {
+            postProcess.endCapture();
         }
 
         // 清空队列（下一帧重新收集）

@@ -48,7 +48,22 @@ public enum ShaderType {
     /**
      * 线条渲染着色器（LineRenderSystem 使用）
      */
-    LINE("shaders/core/line.vert", "shaders/core/line.frag");
+    LINE("shaders/core/line.vert", "shaders/core/line.frag"),
+
+    /**
+     * 后处理 - 亮度提取着色器
+     */
+    POSTPROCESS_BRIGHTNESS("shaders/postprocess/fullscreen.vert", "shaders/postprocess/brightness_extract.frag"),
+
+    /**
+     * 后处理 - 高斯模糊着色器
+     */
+    POSTPROCESS_BLUR("shaders/postprocess/fullscreen.vert", "shaders/postprocess/blur.frag"),
+
+    /**
+     * 后处理 - 合成着色器
+     */
+    POSTPROCESS_COMPOSITE("shaders/postprocess/fullscreen.vert", "shaders/postprocess/composite.frag");
 
     private final String vertFilepath;
     private final String fragFilepath;

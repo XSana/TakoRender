@@ -192,6 +192,22 @@ public class World {
     }
 
     /**
+     * 获取指定类型的系统实例。
+     *
+     * @param systemClass 系统类型
+     * @return 系统实例，如果未找到返回 null
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends GameSystem> T getSystem(Class<T> systemClass) {
+        for (GameSystem system : systems) {
+            if (systemClass.isInstance(system)) {
+                return (T) system;
+            }
+        }
+        return null;
+    }
+
+    /**
      * 执行 UPDATE 阶段的所有系统。
      *
      * <p>
