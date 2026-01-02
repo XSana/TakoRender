@@ -1,8 +1,13 @@
 package moe.takochan.takorender.api.system;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+
+import org.joml.Matrix4f;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -13,6 +18,10 @@ import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
+import moe.takochan.takorender.api.graphics.Material;
+import moe.takochan.takorender.api.graphics.Mesh;
+import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
+import moe.takochan.takorender.core.gl.GLStateContext;
 
 /**
  * 网格渲染系统 - 负责渲染所有拥有 MeshRendererComponent 的实体
@@ -29,6 +38,7 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
  * <li>查找活动相机</li>
  * <li>收集所有可见的 MeshRendererComponent</li>
  * <li>按材质和 sortingOrder 排序</li>
+ * <li>使用 GLStateContext 管理 GL 状态</li>
  * <li>批量渲染（减少状态切换）</li>
  * </ol>
  *
@@ -37,7 +47,7 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
  * </p>
  *
  * <pre>
- * 
+ *
  * {
  *     &#64;code
  *     World world = new World();
@@ -49,6 +59,14 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
 @SideOnly(Side.CLIENT)
 @RequiresComponent(MeshRendererComponent.class)
 public class MeshRenderSystem extends GameSystem {
+
+    /** MVP 矩阵缓冲区（复用避免每帧分配） */
+    private final FloatBuffer modelMatrixBuffer = BufferUtils.createFloatBuffer(16);
+    private final FloatBuffer viewMatrixBuffer = BufferUtils.createFloatBuffer(16);
+    private final FloatBuffer projMatrixBuffer = BufferUtils.createFloatBuffer(16);
+
+    /** 临时矩阵对象（复用避免每帧分配） */
+    private final Matrix4f tempModelMatrix = new Matrix4f();
 
     @Override
     public Phase getPhase() {
@@ -74,14 +92,35 @@ public class MeshRenderSystem extends GameSystem {
         }
 
         List<Entity> renderables = collectRenderables();
+        if (renderables.isEmpty()) {
+            return;
+        }
 
+        // 按 sortingOrder 排序
         renderables.sort(
             Comparator.comparingInt(
                 e -> e.getComponent(MeshRendererComponent.class)
                     .map(MeshRendererComponent::getSortingOrder)
                     .orElse(0)));
 
-        renderMeshes(camera, renderables);
+        // 缓存相机矩阵
+        Matrix4f viewMatrix = camera.getViewMatrix();
+        Matrix4f projMatrix = camera.getProjectionMatrix();
+
+        viewMatrixBuffer.clear();
+        viewMatrix.get(viewMatrixBuffer);
+        projMatrixBuffer.clear();
+        projMatrix.get(projMatrixBuffer);
+
+        // 使用 GLStateContext 管理 GL 状态
+        try (GLStateContext ctx = GLStateContext.begin()) {
+            ctx.enableDepthTest();
+            ctx.enableBlend();
+            ctx.setBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+            ctx.enableCullFace();
+
+            renderMeshes(renderables);
+        }
     }
 
     /**
@@ -95,7 +134,10 @@ public class MeshRenderSystem extends GameSystem {
                 .orElse(null);
 
             if (renderer != null && renderer.isVisible()) {
-                result.add(entity);
+                // 检查 Mesh 和 Material 是否存在
+                if (renderer.getMesh() != null && renderer.getMaterial() != null) {
+                    result.add(entity);
+                }
             }
         }
 
@@ -104,12 +146,11 @@ public class MeshRenderSystem extends GameSystem {
 
     /**
      * 渲染所有网格
-     *
-     * <p>
-     * TODO: 实际渲染逻辑待实现（需要 Mesh、Material、Shader 等基础设施）
-     * </p>
      */
-    private void renderMeshes(CameraComponent camera, List<Entity> renderables) {
+    private void renderMeshes(List<Entity> renderables) {
+        Material lastMaterial = null;
+        ShaderProgram currentShader = null;
+
         for (Entity entity : renderables) {
             MeshRendererComponent renderer = entity.getComponent(MeshRendererComponent.class)
                 .orElse(null);
@@ -120,12 +161,44 @@ public class MeshRenderSystem extends GameSystem {
                 continue;
             }
 
-            // TODO: 实际渲染逻辑
-            // 1. 获取 Mesh 和 Material
-            // 2. 绑定 Shader
-            // 3. 设置 uniform（MVP 矩阵等）
-            // 4. 绘制网格
+            Mesh mesh = renderer.getMesh();
+            Material material = renderer.getMaterial();
+
+            if (mesh == null || material == null || mesh.isDisposed()) {
+                continue;
+            }
+
+            // 材质切换优化：只在材质变化时重新绑定
+            if (material != lastMaterial) {
+                material.apply();
+                currentShader = material.getShader();
+                lastMaterial = material;
+
+                // 设置相机矩阵（每次材质切换时）
+                if (currentShader != null && currentShader.isValid()) {
+                    viewMatrixBuffer.rewind();
+                    currentShader.setUniformMatrix4("uView", false, viewMatrixBuffer);
+                    projMatrixBuffer.rewind();
+                    currentShader.setUniformMatrix4("uProjection", false, projMatrixBuffer);
+                }
+            }
+
+            // 设置模型矩阵
+            if (currentShader != null && currentShader.isValid()) {
+                tempModelMatrix.set(transform.getWorldMatrix());
+                modelMatrixBuffer.clear();
+                tempModelMatrix.get(modelMatrixBuffer);
+                currentShader.setUniformMatrix4("uModel", false, modelMatrixBuffer);
+            }
+
+            // 绘制网格
+            mesh.bind();
+            mesh.draw();
+            mesh.unbind();
         }
+
+        // 解绑着色器
+        ShaderProgram.unbind();
     }
 
     /**

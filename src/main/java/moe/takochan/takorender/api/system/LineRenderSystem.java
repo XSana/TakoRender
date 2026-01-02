@@ -15,13 +15,13 @@ import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
-import moe.takochan.takorender.core.gl.GLStateContext;
+import moe.takochan.takorender.api.graphics.batch.World3DBatch;
 
 /**
  * 线条渲染系统 - 负责渲染所有拥有 LineRendererComponent 的实体
  *
  * <p>
- * LineRenderSystem 在 RENDER 阶段执行，使用 OpenGL 即时模式渲染线条。
+ * LineRenderSystem 在 RENDER 阶段执行，使用 World3DBatch 进行批量渲染。
  * 适用于调试可视化、边界框显示等场景。
  * </p>
  *
@@ -39,7 +39,7 @@ import moe.takochan.takorender.core.gl.GLStateContext;
  * </p>
  *
  * <pre>
- * 
+ *
  * {
  *     &#64;code
  *     World world = new World();
@@ -59,6 +59,12 @@ import moe.takochan.takorender.core.gl.GLStateContext;
 @SideOnly(Side.CLIENT)
 @RequiresComponent(LineRendererComponent.class)
 public class LineRenderSystem extends GameSystem {
+
+    /** 球体渲染时的默认分段数 */
+    private static final int SPHERE_SEGMENTS = 16;
+
+    /** 批量渲染器（复用实例避免重复分配） */
+    private World3DBatch batch;
 
     @Override
     public Phase getPhase() {
@@ -88,68 +94,28 @@ public class LineRenderSystem extends GameSystem {
             return;
         }
 
-        try (GLStateContext ctx = GLStateContext.begin()) {
-            ctx.disableTexture2D();
-            ctx.enableBlend();
-            ctx.setBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-
-            setupMatrices(camera);
-
-            for (Entity entity : entities) {
-                renderLineEntity(ctx, entity);
-            }
-
-            restoreMatrices();
+        // 延迟初始化批量渲染器
+        if (batch == null) {
+            batch = new World3DBatch();
         }
-    }
 
-    /**
-     * 设置投影和视图矩阵
-     */
-    private void setupMatrices(CameraComponent camera) {
-        Matrix4f projection = camera.getProjectionMatrix();
-        Matrix4f view = camera.getViewMatrix();
+        Matrix4f viewMatrix = camera.getViewMatrix();
+        Matrix4f projMatrix = camera.getProjectionMatrix();
 
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        loadMatrix(projection);
+        // 开始批量渲染（使用相机矩阵）
+        batch.begin(GL11.GL_LINES, viewMatrix, projMatrix);
 
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPushMatrix();
-        GL11.glLoadIdentity();
-        loadMatrix(view);
-    }
+        for (Entity entity : entities) {
+            renderLineEntity(entity);
+        }
 
-    /**
-     * 恢复矩阵状态
-     */
-    private void restoreMatrices() {
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glPopMatrix();
-
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glPopMatrix();
-    }
-
-    /**
-     * 加载 JOML 矩阵到 OpenGL
-     */
-    private void loadMatrix(Matrix4f matrix) {
-        float[] data = new float[16];
-        matrix.get(data);
-
-        java.nio.FloatBuffer buffer = org.lwjgl.BufferUtils.createFloatBuffer(16);
-        buffer.put(data);
-        buffer.flip();
-
-        GL11.glLoadMatrix(buffer);
+        batch.end();
     }
 
     /**
      * 渲染单个线条实体
      */
-    private void renderLineEntity(GLStateContext ctx, Entity entity) {
+    private void renderLineEntity(Entity entity) {
         LineRendererComponent line = entity.getComponent(LineRendererComponent.class)
             .orElse(null);
         TransformComponent transform = entity.getComponent(TransformComponent.class)
@@ -159,124 +125,76 @@ public class LineRenderSystem extends GameSystem {
             return;
         }
 
-        if (line.isDepthTest()) {
-            ctx.enableDepthTest();
-        } else {
-            ctx.disableDepthTest();
-        }
+        // 设置深度测试和线宽
+        batch.setDepthTest(line.isDepthTest());
+        batch.setLineWidth(line.getLineWidth());
 
-        ctx.setLineWidth(line.getLineWidth());
-        GL11.glColor4f(line.getColorR(), line.getColorG(), line.getColorB(), line.getColorA());
+        // 获取世界坐标
+        Matrix4f worldMatrix = transform.getWorldMatrix();
+        Vector3f position = new Vector3f();
+        worldMatrix.getTranslation(position);
 
-        GL11.glPushMatrix();
-        loadMatrix(transform.getWorldMatrix());
+        float r = line.getColorR();
+        float g = line.getColorG();
+        float b = line.getColorB();
+        float a = line.getColorA();
 
         switch (line.getShape()) {
             case LINE:
-                renderLine(line);
+                renderLine(line, position, r, g, b, a);
                 break;
             case BOX:
-                renderBox(line);
+                renderBox(line, position, r, g, b, a);
                 break;
             case SPHERE:
-                renderSphere(line);
+                renderSphere(line, position, r, g, b, a);
                 break;
             default:
                 break;
         }
-
-        GL11.glPopMatrix();
     }
 
     /**
      * 渲染单条线段
      */
-    private void renderLine(LineRendererComponent line) {
+    private void renderLine(LineRendererComponent line, Vector3f position, float r, float g, float b, float a) {
         Vector3f start = line.getStartPoint();
         Vector3f end = line.getEndPoint();
 
-        GL11.glBegin(GL11.GL_LINES);
-        GL11.glVertex3f(start.x, start.y, start.z);
-        GL11.glVertex3f(end.x, end.y, end.z);
-        GL11.glEnd();
+        batch.drawLine(
+            position.x + start.x,
+            position.y + start.y,
+            position.z + start.z,
+            position.x + end.x,
+            position.y + end.y,
+            position.z + end.z,
+            r,
+            g,
+            b,
+            a);
     }
 
     /**
      * 渲染线框立方体
      */
-    private void renderBox(LineRendererComponent line) {
+    private void renderBox(LineRendererComponent line, Vector3f position, float r, float g, float b, float a) {
         Vector3f size = line.getSize();
         float hw = size.x / 2;
         float hh = size.y / 2;
         float hd = size.z / 2;
 
-        GL11.glBegin(GL11.GL_LINES);
-
-        // 底面
-        GL11.glVertex3f(-hw, -hh, -hd);
-        GL11.glVertex3f(hw, -hh, -hd);
-        GL11.glVertex3f(hw, -hh, -hd);
-        GL11.glVertex3f(hw, -hh, hd);
-        GL11.glVertex3f(hw, -hh, hd);
-        GL11.glVertex3f(-hw, -hh, hd);
-        GL11.glVertex3f(-hw, -hh, hd);
-        GL11.glVertex3f(-hw, -hh, -hd);
-
-        // 顶面
-        GL11.glVertex3f(-hw, hh, -hd);
-        GL11.glVertex3f(hw, hh, -hd);
-        GL11.glVertex3f(hw, hh, -hd);
-        GL11.glVertex3f(hw, hh, hd);
-        GL11.glVertex3f(hw, hh, hd);
-        GL11.glVertex3f(-hw, hh, hd);
-        GL11.glVertex3f(-hw, hh, hd);
-        GL11.glVertex3f(-hw, hh, -hd);
-
-        // 竖边
-        GL11.glVertex3f(-hw, -hh, -hd);
-        GL11.glVertex3f(-hw, hh, -hd);
-        GL11.glVertex3f(hw, -hh, -hd);
-        GL11.glVertex3f(hw, hh, -hd);
-        GL11.glVertex3f(hw, -hh, hd);
-        GL11.glVertex3f(hw, hh, hd);
-        GL11.glVertex3f(-hw, -hh, hd);
-        GL11.glVertex3f(-hw, hh, hd);
-
-        GL11.glEnd();
+        // 使用 World3DBatch 的 drawWireBox
+        batch.drawWireBox(position.x - hw, position.y - hh, position.z - hd, size.x, size.y, size.z, r, g, b, a);
     }
 
     /**
      * 渲染线框球体
      */
-    private void renderSphere(LineRendererComponent line) {
+    private void renderSphere(LineRendererComponent line, Vector3f position, float r, float g, float b, float a) {
         Vector3f size = line.getSize();
         float radius = Math.min(size.x, Math.min(size.y, size.z)) / 2;
 
-        int segments = 16;
-
-        // 水平圆环（赤道）
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        for (int i = 0; i < segments; i++) {
-            float angle = (float) (2 * Math.PI * i / segments);
-            GL11.glVertex3f((float) Math.cos(angle) * radius, 0, (float) Math.sin(angle) * radius);
-        }
-        GL11.glEnd();
-
-        // 垂直圆环（经线）
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        for (int i = 0; i < segments; i++) {
-            float angle = (float) (2 * Math.PI * i / segments);
-            GL11.glVertex3f((float) Math.cos(angle) * radius, (float) Math.sin(angle) * radius, 0);
-        }
-        GL11.glEnd();
-
-        // 另一条垂直圆环
-        GL11.glBegin(GL11.GL_LINE_LOOP);
-        for (int i = 0; i < segments; i++) {
-            float angle = (float) (2 * Math.PI * i / segments);
-            GL11.glVertex3f(0, (float) Math.sin(angle) * radius, (float) Math.cos(angle) * radius);
-        }
-        GL11.glEnd();
+        batch.drawWireSphere(position.x, position.y, position.z, radius, SPHERE_SEGMENTS, r, g, b, a);
     }
 
     /**
@@ -291,5 +209,13 @@ public class LineRenderSystem extends GameSystem {
             }
         }
         return null;
+    }
+
+    @Override
+    public void onDestroy() {
+        if (batch != null) {
+            batch.dispose();
+            batch = null;
+        }
     }
 }

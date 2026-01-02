@@ -1,5 +1,7 @@
 package moe.takochan.takorender.api.graphics;
 
+import moe.takochan.takorender.api.graphics.shader.ShaderProgram;
+
 /**
  * 材质接口 - 定义渲染时的外观属性
  *
@@ -56,4 +58,15 @@ public interface Material {
      * @return 新的材质实例
      */
     Material instantiate();
+
+    /**
+     * 获取此材质使用的着色器程序
+     *
+     * <p>
+     * 用于在渲染时设置 MVP 矩阵等 System 级别的 uniform。
+     * </p>
+     *
+     * @return 着色器程序，可能为 null
+     */
+    ShaderProgram getShader();
 }
