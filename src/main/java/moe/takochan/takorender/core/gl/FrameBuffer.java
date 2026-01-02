@@ -196,19 +196,54 @@ public class FrameBuffer implements AutoCloseable {
     /**
      * 绑定颜色纹理到纹理单元用于采样
      *
+     * <p>
+     * 绑定后自动恢复之前的活动纹理单元。
+     * </p>
+     *
      * @param unit 纹理单元 (0-15)
      */
     public void bindTexture(int unit) {
         if (disposed) {
             throw new IllegalStateException("FrameBuffer has been disposed");
         }
+        // 保存当前活动纹理单元
+        int previousActiveTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+
+        // 切换到目标单元并绑定
         GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTextureId);
+
+        // 恢复之前的活动纹理单元
+        GL13.glActiveTexture(previousActiveTexture);
     }
 
     /**
-     * 解绑颜色纹理
+     * 解绑指定纹理单元上的颜色纹理
+     *
+     * <p>
+     * 解绑后自动恢复之前的活动纹理单元。
+     * </p>
+     *
+     * @param unit 纹理单元 (0-15)
      */
+    public void unbindTexture(int unit) {
+        // 保存当前活动纹理单元
+        int previousActiveTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
+
+        // 切换到目标单元并解绑
+        GL13.glActiveTexture(GL13.GL_TEXTURE0 + unit);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+
+        // 恢复之前的活动纹理单元
+        GL13.glActiveTexture(previousActiveTexture);
+    }
+
+    /**
+     * 解绑当前活动纹理单元上的颜色纹理
+     *
+     * @deprecated 使用 {@link #unbindTexture(int)} 指定纹理单元
+     */
+    @Deprecated
     public void unbindTexture() {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
     }

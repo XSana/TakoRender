@@ -324,7 +324,7 @@ public class PostProcessSystem extends GameSystem {
 
         sceneFbo.bindTexture(0);
         drawFullscreenQuad();
-        sceneFbo.unbindTexture();
+        sceneFbo.unbindTexture(0);
 
         ShaderProgram.unbind();
         brightFbo.unbind();
@@ -359,7 +359,7 @@ public class PostProcessSystem extends GameSystem {
 
             readFbo.bindTexture(0);
             drawFullscreenQuad();
-            readFbo.unbindTexture();
+            readFbo.unbindTexture(0);
 
             writeFbo.unbind();
 
