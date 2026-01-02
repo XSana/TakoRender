@@ -1,5 +1,7 @@
 # TakoRender
 
+English | [中文](README_CN.md)
+
 Modern ECS-based rendering framework for Minecraft 1.7.10
 
 ## Overview
