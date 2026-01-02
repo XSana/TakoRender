@@ -175,12 +175,25 @@ public class World {
 
     /**
      * 添加系统到 World。
+     *
+     * <p>
+     * 系统添加后会按 {@link GameSystem#getPriority()} 重新排序，
+     * 确保低优先级数字的系统先执行。
+     * </p>
      */
     public <T extends GameSystem> T addSystem(T system) {
         system.setWorld(this);
         systems.add(system);
+        sortSystems();
         system.onInit();
         return system;
+    }
+
+    /**
+     * 按优先级排序系统（数字小的先执行）。
+     */
+    private void sortSystems() {
+        systems.sort((a, b) -> Integer.compare(a.getPriority(), b.getPriority()));
     }
 
     /**

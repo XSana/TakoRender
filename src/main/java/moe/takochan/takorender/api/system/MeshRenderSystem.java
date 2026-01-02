@@ -14,6 +14,7 @@ import org.lwjgl.opengl.GL11;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.component.CameraComponent;
+import moe.takochan.takorender.api.component.LightProbeComponent;
 import moe.takochan.takorender.api.component.MeshRendererComponent;
 import moe.takochan.takorender.api.component.TransformComponent;
 import moe.takochan.takorender.api.ecs.Entity;
@@ -329,6 +330,20 @@ public class MeshRenderSystem extends GameSystem {
                 modelMatrixBuffer.clear();
                 tempModelMatrix.get(modelMatrixBuffer);
                 currentShader.setUniformMatrix4("uModel", false, modelMatrixBuffer);
+
+                // 设置光照 uniform（如果有 LightProbeComponent）
+                LightProbeComponent probe = entity.getComponent(LightProbeComponent.class)
+                    .orElse(null);
+                if (probe != null) {
+                    currentShader.setUniformFloat("uBlockLight", probe.getBlockLight());
+                    currentShader.setUniformFloat("uSkyLight", probe.getSkyLight());
+                    currentShader.setUniformFloat("uCombinedLight", probe.getCombinedLight());
+                } else {
+                    // 无光照探针时使用全亮度
+                    currentShader.setUniformFloat("uBlockLight", 1.0f);
+                    currentShader.setUniformFloat("uSkyLight", 1.0f);
+                    currentShader.setUniformFloat("uCombinedLight", 1.0f);
+                }
             }
 
             // 绘制网格

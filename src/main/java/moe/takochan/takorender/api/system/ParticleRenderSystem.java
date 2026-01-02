@@ -15,6 +15,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.component.CameraComponent;
+import moe.takochan.takorender.api.component.LightProbeComponent;
 import moe.takochan.takorender.api.component.ParticleBufferComponent;
 import moe.takochan.takorender.api.component.ParticleRenderComponent;
 import moe.takochan.takorender.api.component.ParticleStateComponent;
@@ -136,6 +137,8 @@ public class ParticleRenderSystem extends GameSystem {
 
         ParticleRenderComponent renderComp = entity.getComponent(ParticleRenderComponent.class)
             .orElse(null);
+        LightProbeComponent lightProbe = entity.getComponent(LightProbeComponent.class)
+            .orElse(null);
 
         ensureRendererInitialized();
         if (renderer == null) {
@@ -144,7 +147,7 @@ public class ParticleRenderSystem extends GameSystem {
 
         int textureId = 0;
         if (renderComp != null) {
-            configureRenderer(renderComp, transform);
+            configureRenderer(renderComp, transform, lightProbe);
             textureId = renderComp.getTextureId();
         }
 
@@ -172,7 +175,8 @@ public class ParticleRenderSystem extends GameSystem {
         }
     }
 
-    private void configureRenderer(ParticleRenderComponent renderComp, TransformComponent transform) {
+    private void configureRenderer(ParticleRenderComponent renderComp, TransformComponent transform,
+        LightProbeComponent lightProbe) {
         renderer.setBlendMode(convertBlendMode(renderComp.getBlendMode()));
         renderer.setRenderMode(convertRenderMode(renderComp.getRenderMode()));
         renderer.setSoftParticles(renderComp.isSoftParticles(), renderComp.getSoftDistance());
@@ -185,14 +189,19 @@ public class ParticleRenderSystem extends GameSystem {
             renderComp.getAnimationSpeed(),
             renderComp.getAnimationMode());
 
-        // 光照参数
+        // 光照参数：优先使用 LightProbeComponent，否则回退到直接查询
         float blockLight = 1.0f;
         float skyLight = 1.0f;
 
-        if (renderComp.isReceiveLighting() && transform != null) {
-            float[] lightLevels = queryMCLighting(transform);
-            blockLight = lightLevels[0];
-            skyLight = lightLevels[1];
+        if (renderComp.isReceiveLighting()) {
+            if (lightProbe != null) {
+                blockLight = lightProbe.getBlockLight();
+                skyLight = lightProbe.getSkyLight();
+            } else if (transform != null) {
+                float[] lightLevels = queryMCLighting(transform);
+                blockLight = lightLevels[0];
+                skyLight = lightLevels[1];
+            }
         }
 
         renderer.setLighting(blockLight, skyLight, renderComp.getEmissive(), renderComp.isReceiveLighting());
