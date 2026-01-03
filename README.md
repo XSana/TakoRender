@@ -8,18 +8,20 @@ Modern ECS-based rendering framework for Minecraft 1.7.10
 
 ## Installation
 
-Add to your `build.gradle`:
+Add JitPack repository to `repositories.gradle` (GTNH projects) or `build.gradle`:
 
 ```gradle
-repositories {
-    maven {
-        url 'https://jitpack.io'
-        content {
-            includeGroupByRegex 'com\\.github\\..+'
-        }
+maven {
+    url 'https://jitpack.io'
+    content {
+        includeGroupByRegex 'com\\.github\\..+'
     }
 }
+```
 
+Add dependency to `build.gradle`:
+
+```gradle
 dependencies {
     implementation 'com.github.XSana:TakoRender:VERSION'
 }
