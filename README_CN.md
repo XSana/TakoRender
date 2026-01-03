@@ -8,7 +8,7 @@ Minecraft 1.7.10 现代化 ECS 渲染框架
 
 ## 安装
 
-在 `build.gradle` 中添加 JitPack 仓库和依赖：
+在 `build.gradle` 中添加：
 
 ```gradle
 repositories {
@@ -16,9 +16,11 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.XSana:TakoRender:0.1.2'
+    implementation 'com.github.XSana:TakoRender:VERSION'
 }
 ```
+
+将 `VERSION` 替换为上方徽章显示的最新版本。
 
 ## 概述
 
