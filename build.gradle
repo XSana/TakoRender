@@ -4,7 +4,15 @@ plugins {
 }
 
 // GitHub Packages 要求 groupId 以仓库所有者命名空间开头
-group = 'com.github.xsana'
+afterEvaluate {
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                groupId = 'com.github.xsana'
+            }
+        }
+    }
+}
 
 // 配置运行任务使用不同的工作目录
 tasks.named("runClient", JavaExec) {
