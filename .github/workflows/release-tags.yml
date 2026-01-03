@@ -10,3 +10,12 @@ permissions:
 jobs:
   release-tags:
     uses: GTNewHorizons/GTNH-Actions-Workflows/.github/workflows/release-tags.yml@master
+
+  trigger-jitpack:
+    needs: release-tags
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger JitPack build
+        run: |
+          curl -s "https://jitpack.io/com/github/XSana/TakoRender/${{ github.ref_name }}/TakoRender-${{ github.ref_name }}.pom" || true
+          echo "JitPack build triggered for ${{ github.ref_name }}"
