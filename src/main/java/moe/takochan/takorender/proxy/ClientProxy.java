@@ -1,11 +1,16 @@
 package moe.takochan.takorender.proxy;
 
+import net.minecraftforge.common.MinecraftForge;
+
+import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import moe.takochan.takorender.TakoRenderMod;
+import moe.takochan.takorender.api.TakoRender;
 import moe.takochan.takorender.api.resource.ShaderManager;
 import moe.takochan.takorender.api.resource.TextureManager;
+import moe.takochan.takorender.core.RenderEventHandler;
 
 public class ClientProxy extends CommonProxy {
 
@@ -17,6 +22,18 @@ public class ClientProxy extends CommonProxy {
     @Override
     public void init(FMLInitializationEvent event) {
         super.init(event);
+
+        // 初始化 ECS
+        TakoRender.initialize();
+
+        // 注册渲染事件处理器
+        RenderEventHandler handler = new RenderEventHandler(TakoRender.getWorld());
+        MinecraftForge.EVENT_BUS.register(handler);
+        FMLCommonHandler.instance()
+            .bus()
+            .register(handler);
+
+        TakoRenderMod.LOG.info("Registered render event handler");
     }
 
     @Override
