@@ -7,6 +7,9 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
@@ -47,7 +50,7 @@ import moe.takochan.takorender.core.gl.GLStateContext;
  * </p>
  *
  * <pre>
- * 
+ *
  * {
  *     &#64;code
  *     DebugRenderSystem debug = world.getSystem(DebugRenderSystem.class);
@@ -57,6 +60,15 @@ import moe.takochan.takorender.core.gl.GLStateContext;
  */
 @SideOnly(Side.CLIENT)
 public class DebugRenderSystem extends GameSystem {
+
+    /** AABB 线框顶点数（12 条边 * 2 顶点） */
+    private static final int AABB_LINE_VERTICES = 24;
+
+    /** 每顶点 float 数（xyz） */
+    private static final int FLOATS_PER_VERTEX = 3;
+
+    /** 初始缓冲容量（实体数） */
+    private static final int INITIAL_CAPACITY = 64;
 
     /** 当前调试模式 */
     private DebugMode mode = DebugMode.NONE;
@@ -69,6 +81,21 @@ public class DebugRenderSystem extends GameSystem {
 
     /** 临时矩阵 */
     private final Matrix4f tempMatrix = new Matrix4f();
+
+    /** VAO */
+    private int vao;
+
+    /** VBO */
+    private int vbo;
+
+    /** CPU 端顶点缓冲 */
+    private FloatBuffer vertexBuffer;
+
+    /** 当前缓冲容量（实体数） */
+    private int bufferCapacity;
+
+    /** 当前顶点数量 */
+    private int vertexCount;
 
     /** LOD 级别颜色 */
     private static final float[][] LOD_COLORS = { { 0.0f, 1.0f, 0.0f }, // LOD 0: 绿色（最高精度）
@@ -93,6 +120,31 @@ public class DebugRenderSystem extends GameSystem {
     public void onInit() {
         lineShader = ShaderManager.instance()
             .get(ShaderManager.SHADER_LINE);
+
+        // 创建 VAO/VBO
+        vao = GL30.glGenVertexArrays();
+        vbo = GL15.glGenBuffers();
+
+        GL30.glBindVertexArray(vao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+
+        // 顶点属性: location 0 = position (vec3)
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, FLOATS_PER_VERTEX * Float.BYTES, 0);
+
+        GL30.glBindVertexArray(0);
+
+        // 初始化 CPU 缓冲
+        bufferCapacity = INITIAL_CAPACITY;
+        vertexBuffer = BufferUtils.createFloatBuffer(bufferCapacity * AABB_LINE_VERTICES * FLOATS_PER_VERTEX);
+
+        // 初始化 GPU 缓冲
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        GL15.glBufferData(
+            GL15.GL_ARRAY_BUFFER,
+            (long) bufferCapacity * AABB_LINE_VERTICES * FLOATS_PER_VERTEX * Float.BYTES,
+            GL15.GL_DYNAMIC_DRAW);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
     }
 
     @Override
@@ -101,6 +153,15 @@ public class DebugRenderSystem extends GameSystem {
             lineShader.release();
             lineShader = null;
         }
+        if (vao != 0) {
+            GL30.glDeleteVertexArrays(vao);
+            vao = 0;
+        }
+        if (vbo != 0) {
+            GL15.glDeleteBuffers(vbo);
+            vbo = 0;
+        }
+        vertexBuffer = null;
     }
 
     @Override
@@ -196,6 +257,9 @@ public class DebugRenderSystem extends GameSystem {
         ctx.enableBlend();
         ctx.setBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
+        // 开始收集顶点
+        beginBatch();
+
         // 遍历所有有 BoundsComponent 的实体
         List<Entity> entities = getWorld().getEntitiesWith(BoundsComponent.class);
         for (Entity entity : entities) {
@@ -210,10 +274,13 @@ public class DebugRenderSystem extends GameSystem {
             if (bounds != null) {
                 AABB worldBounds = bounds.getWorldBounds();
                 if (worldBounds != null && worldBounds.isValid()) {
-                    drawAABB(worldBounds);
+                    addAABB(worldBounds);
                 }
             }
         }
+
+        // 提交并渲染
+        endBatchAndRender();
 
         ShaderProgram.unbind();
     }
@@ -254,9 +321,15 @@ public class DebugRenderSystem extends GameSystem {
                 float[] color = LOD_COLORS[level];
                 shader.setUniformVec4("uColor", color[0], color[1], color[2], 0.7f);
 
+                // 开始收集顶点
+                beginBatch();
+
                 // 绘制一个小立方体表示 LOD 级别
                 Vector3f pos = transform.getPositionRef();
-                drawPoint(pos, 0.5f);
+                addCrossLines(pos, 0.5f);
+
+                // 提交并渲染
+                endBatchAndRender();
             }
         }
 
@@ -264,69 +337,123 @@ public class DebugRenderSystem extends GameSystem {
     }
 
     /**
-     * 绘制 AABB 线框
+     * 开始批量收集顶点
      */
-    private void drawAABB(AABB aabb) {
+    private void beginBatch() {
+        vertexBuffer.clear();
+        vertexCount = 0;
+    }
+
+    /**
+     * 添加 AABB 线框到批量缓冲
+     */
+    private void addAABB(AABB aabb) {
+        ensureCapacity(1);
+
         Vector3f min = aabb.getMin();
         Vector3f max = aabb.getMax();
 
         float x0 = min.x, y0 = min.y, z0 = min.z;
         float x1 = max.x, y1 = max.y, z1 = max.z;
 
-        GL11.glBegin(GL11.GL_LINES);
+        // 底面 4 条边
+        addLine(x0, y0, z0, x1, y0, z0);
+        addLine(x1, y0, z0, x1, y0, z1);
+        addLine(x1, y0, z1, x0, y0, z1);
+        addLine(x0, y0, z1, x0, y0, z0);
 
-        // 底面
-        GL11.glVertex3f(x0, y0, z0);
-        GL11.glVertex3f(x1, y0, z0);
-        GL11.glVertex3f(x1, y0, z0);
-        GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x0, y0, z1);
-        GL11.glVertex3f(x0, y0, z1);
-        GL11.glVertex3f(x0, y0, z0);
+        // 顶面 4 条边
+        addLine(x0, y1, z0, x1, y1, z0);
+        addLine(x1, y1, z0, x1, y1, z1);
+        addLine(x1, y1, z1, x0, y1, z1);
+        addLine(x0, y1, z1, x0, y1, z0);
 
-        // 顶面
-        GL11.glVertex3f(x0, y1, z0);
-        GL11.glVertex3f(x1, y1, z0);
-        GL11.glVertex3f(x1, y1, z0);
-        GL11.glVertex3f(x1, y1, z1);
-        GL11.glVertex3f(x1, y1, z1);
-        GL11.glVertex3f(x0, y1, z1);
-        GL11.glVertex3f(x0, y1, z1);
-        GL11.glVertex3f(x0, y1, z0);
-
-        // 垂直边
-        GL11.glVertex3f(x0, y0, z0);
-        GL11.glVertex3f(x0, y1, z0);
-        GL11.glVertex3f(x1, y0, z0);
-        GL11.glVertex3f(x1, y1, z0);
-        GL11.glVertex3f(x1, y0, z1);
-        GL11.glVertex3f(x1, y1, z1);
-        GL11.glVertex3f(x0, y0, z1);
-        GL11.glVertex3f(x0, y1, z1);
-
-        GL11.glEnd();
+        // 垂直边 4 条
+        addLine(x0, y0, z0, x0, y1, z0);
+        addLine(x1, y0, z0, x1, y1, z0);
+        addLine(x1, y0, z1, x1, y1, z1);
+        addLine(x0, y0, z1, x0, y1, z1);
     }
 
     /**
-     * 绘制点（小立方体）
+     * 添加十字线到批量缓冲（用于标记点）
      */
-    private void drawPoint(Vector3f pos, float size) {
+    private void addCrossLines(Vector3f pos, float size) {
+        ensureCapacity(1);
+
         float half = size * 0.5f;
-        float x0 = pos.x - half, y0 = pos.y - half, z0 = pos.z - half;
-        float x1 = pos.x + half, y1 = pos.y + half, z1 = pos.z + half;
 
-        GL11.glBegin(GL11.GL_LINES);
+        // X 轴
+        addLine(pos.x - half, pos.y, pos.z, pos.x + half, pos.y, pos.z);
+        // Y 轴
+        addLine(pos.x, pos.y - half, pos.z, pos.x, pos.y + half, pos.z);
+        // Z 轴
+        addLine(pos.x, pos.y, pos.z - half, pos.x, pos.y, pos.z + half);
+    }
 
-        // 简化：只画交叉线
-        GL11.glVertex3f(x0, pos.y, pos.z);
-        GL11.glVertex3f(x1, pos.y, pos.z);
-        GL11.glVertex3f(pos.x, y0, pos.z);
-        GL11.glVertex3f(pos.x, y1, pos.z);
-        GL11.glVertex3f(pos.x, pos.y, z0);
-        GL11.glVertex3f(pos.x, pos.y, z1);
+    /**
+     * 添加一条线段
+     */
+    private void addLine(float x0, float y0, float z0, float x1, float y1, float z1) {
+        vertexBuffer.put(x0)
+            .put(y0)
+            .put(z0);
+        vertexBuffer.put(x1)
+            .put(y1)
+            .put(z1);
+        vertexCount += 2;
+    }
 
-        GL11.glEnd();
+    /**
+     * 确保缓冲区有足够容量
+     */
+    private void ensureCapacity(int additionalEntities) {
+        int requiredVertices = vertexCount + additionalEntities * AABB_LINE_VERTICES;
+        int requiredFloats = requiredVertices * FLOATS_PER_VERTEX;
+
+        if (requiredFloats > vertexBuffer.capacity()) {
+            // 扩容
+            int newCapacity = Math.max(bufferCapacity * 2, (requiredVertices / AABB_LINE_VERTICES) + 1);
+            bufferCapacity = newCapacity;
+
+            FloatBuffer newBuffer = BufferUtils.createFloatBuffer(newCapacity * AABB_LINE_VERTICES * FLOATS_PER_VERTEX);
+
+            // 复制现有数据
+            vertexBuffer.flip();
+            newBuffer.put(vertexBuffer);
+
+            vertexBuffer = newBuffer;
+
+            // 重新分配 GPU 缓冲
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+            GL15.glBufferData(
+                GL15.GL_ARRAY_BUFFER,
+                (long) newCapacity * AABB_LINE_VERTICES * FLOATS_PER_VERTEX * Float.BYTES,
+                GL15.GL_DYNAMIC_DRAW);
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
+        }
+    }
+
+    /**
+     * 结束批量收集并渲染
+     */
+    private void endBatchAndRender() {
+        if (vertexCount == 0) {
+            return;
+        }
+
+        vertexBuffer.flip();
+
+        // 上传到 GPU
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, vertexBuffer);
+
+        // 渲染
+        GL30.glBindVertexArray(vao);
+        GL11.glDrawArrays(GL11.GL_LINES, 0, vertexCount);
+        GL30.glBindVertexArray(0);
+
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
     }
 
     /**
