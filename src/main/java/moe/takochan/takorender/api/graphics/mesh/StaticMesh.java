@@ -63,6 +63,9 @@ public class StaticMesh extends BaseMesh {
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
 
+        // 计算包围盒
+        computeBounds(vertexData);
+
         valid = true;
     }
 
@@ -107,6 +110,9 @@ public class StaticMesh extends BaseMesh {
         // 解绑 VBO/EBO
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
         GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        // 计算包围盒
+        computeBounds(vertexData);
 
         valid = true;
     }

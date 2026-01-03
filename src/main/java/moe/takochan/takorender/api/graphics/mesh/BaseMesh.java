@@ -7,6 +7,7 @@ import org.lwjgl.opengl.GL30;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.api.graphics.AABB;
 import moe.takochan.takorender.api.graphics.Mesh;
 
 /**
@@ -42,6 +43,9 @@ public abstract class BaseMesh implements Mesh, AutoCloseable {
     protected final VertexFormat format;
     protected final int strideBytes;
     protected final VertexAttribute[] attributes;
+
+    /** 包围盒 */
+    protected AABB bounds;
 
     /** 保存的状态（用于 bind/unbind） */
     private int savedVao, savedVbo, savedEbo;
@@ -240,6 +244,34 @@ public abstract class BaseMesh implements Mesh, AutoCloseable {
     @Override
     public boolean isDisposed() {
         return disposed;
+    }
+
+    @Override
+    public AABB getBounds() {
+        return bounds;
+    }
+
+    /**
+     * 设置包围盒
+     *
+     * @param bounds 包围盒
+     */
+    public void setBounds(AABB bounds) {
+        this.bounds = bounds;
+    }
+
+    /**
+     * 从顶点数据计算包围盒
+     *
+     * @param vertexData 顶点数据
+     */
+    protected void computeBounds(float[] vertexData) {
+        if (vertexData == null || vertexData.length == 0) {
+            this.bounds = null;
+            return;
+        }
+        int floatsPerVertex = strideBytes / 4;
+        this.bounds = AABB.fromVertices(vertexData, floatsPerVertex, 0);
     }
 
     public int getVao() {

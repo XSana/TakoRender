@@ -59,4 +59,16 @@ public interface Mesh {
      * @return true 表示已释放
      */
     boolean isDisposed();
+
+    /**
+     * 获取网格的包围盒
+     *
+     * <p>
+     * 返回本地空间的轴对齐包围盒 (AABB)。
+     * 用于视锥剔除和碰撞检测。
+     * </p>
+     *
+     * @return 包围盒，如果无法计算则返回 null
+     */
+    AABB getBounds();
 }

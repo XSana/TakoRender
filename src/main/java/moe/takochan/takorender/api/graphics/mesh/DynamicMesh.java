@@ -149,6 +149,27 @@ public class DynamicMesh extends BaseMesh {
         if (savedVao == 0) {
             GL15.glBindBuffer(GL15.GL_ELEMENT_ARRAY_BUFFER, savedEbo);
         }
+
+        // 更新包围盒
+        computeBoundsFromSubset(vertexData, vertexCount);
+    }
+
+    /**
+     * 从部分顶点数据计算包围盒
+     *
+     * @param vertexData 顶点数据数组
+     * @param floatCount 要使用的浮点数数量
+     */
+    private void computeBoundsFromSubset(float[] vertexData, int floatCount) {
+        if (vertexData == null || floatCount == 0) {
+            this.bounds = null;
+            return;
+        }
+        int floatsPerVertex = strideBytes / 4;
+        // 只处理实际使用的数据
+        float[] subset = new float[floatCount];
+        System.arraycopy(vertexData, 0, subset, 0, floatCount);
+        this.bounds = moe.takochan.takorender.api.graphics.AABB.fromVertices(subset, floatsPerVertex, 0);
     }
 
     /**
