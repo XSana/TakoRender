@@ -50,7 +50,8 @@ public class ParticleEmitSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        return 100;
+        // 在 CameraSystem (100) 之后
+        return 200;
     }
 
     @Override

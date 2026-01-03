@@ -45,8 +45,8 @@ public class WorldSpaceUISystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        // 在 CameraSystem (0) 之后执行
-        return 10;
+        // 在 CameraSystem (100) 之后执行
+        return 150;
     }
 
     @Override

@@ -37,7 +37,7 @@ import moe.takochan.takorender.api.ecs.RequiresComponent;
  * <b>执行顺序</b>:
  * </p>
  * <p>
- * Priority 50，在 TransformSystem (10) 之后、渲染系统之前执行，
+ * Priority 0，在 TransformSystem (-1000) 之后、CameraSystem (100) 之前执行，
  * 确保位置数据已更新且光照数据在渲染前可用。
  * </p>
  */
@@ -52,8 +52,8 @@ public class LightProbeSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        // 在 TransformSystem (10) 之后，渲染系统之前
-        return 50;
+        // 在 TransformSystem (-1000) 之后，CameraSystem (100) 之前
+        return 0;
     }
 
     @Override

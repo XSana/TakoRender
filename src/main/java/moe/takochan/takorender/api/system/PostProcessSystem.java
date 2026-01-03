@@ -109,8 +109,8 @@ public class PostProcessSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        // 最高优先级（最后执行），在所有渲染完成后处理
-        return 1000;
+        // 在所有渲染完成后执行后处理（DebugRenderSystem 1000 之前）
+        return 900;
     }
 
     @Override

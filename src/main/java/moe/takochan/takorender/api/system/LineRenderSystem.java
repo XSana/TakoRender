@@ -77,7 +77,8 @@ public class LineRenderSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        return 100;
+        // 在 MeshRenderSystem (0) 之后
+        return 300;
     }
 
     @Override

@@ -86,9 +86,8 @@ public class ParticleRenderSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        // 优先级 201: 在 MeshRenderSystem (200) 之后渲染
-        // MeshRenderSystem 会调用 beginCapture/endCapture，但我们需要自己处理
-        return 201;
+        // 在 SpriteRenderSystem (400) 之后渲染
+        return 500;
     }
 
     @Override

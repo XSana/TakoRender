@@ -39,7 +39,8 @@ public class TrailSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        return 20;
+        // 在粒子系统 (200, 300) 之后
+        return 400;
     }
 
     @Override

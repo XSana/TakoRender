@@ -78,7 +78,8 @@ public class SpriteRenderSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        return 200;
+        // 在 LineRenderSystem (300) 之后
+        return 400;
     }
 
     @Override

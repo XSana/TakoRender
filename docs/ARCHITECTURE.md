@@ -195,64 +195,50 @@ class ParticleRenderSystem extends GameSystem {
 │     │                                                                │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
 │     │  │ TransformSystem (priority: -1000)                       │  │
-│     │  │ • 遍历所有 TransformComponent                            │  │
 │     │  │ • 计算 worldMatrix = T * R * S                          │  │
-│     │  │ • 更新 forward/up/right 方向向量                         │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ CameraSystem (priority: 100)                            │  │
-│     │  │ • 同步 MC 相机参数（如果 syncWithMinecraft=true）        │  │
-│     │  │ • 计算 viewMatrix 和 projectionMatrix                   │  │
-│     │  │ • 更新 viewProjectionMatrix                             │  │
+│     │  │ LODSystem (-800) → FrustumCullingSystem (-500)          │  │
+│     │  │ • LOD 级别切换、视锥剔除                                 │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ FrustumCullingSystem                                    │  │
-│     │  │ • 用 viewProjection 构建视锥体                          │  │
-│     │  │ • 测试每个 BoundsComponent，设置 culled 标记            │  │
+│     │  │ LightProbeSystem (0) → CameraSystem (100)               │  │
+│     │  │ • 采样光照、计算相机矩阵                                 │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ ParticleEmitSystem / ParticlePhysicsSystem              │  │
-│     │  │ • 发射新粒子                                             │  │
-│     │  │ • 更新粒子位置/速度/生命                                 │  │
+│     │  │ ParticleEmitSystem (200) → ParticlePhysicsSystem (300)  │  │
+│     │  │ • 发射粒子、更新物理                                     │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ LifetimeSystem (priority: MAX)                          │  │
-│     │  │ • 检查 TRANSIENT 类型是否过期                           │  │
-│     │  │ • 销毁 markForDestroy 的 Entity                         │  │
+│     │  │ LifetimeSystem (priority: 10000)                        │  │
+│     │  │ • 检查过期、销毁 Entity                                  │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                                                                │
 │                                                                      │
 │  4. World.render() - RENDER 阶段                                     │
 │     │                                                                │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ MeshRenderSystem (priority: 0)                          │  │
-│     │  │ • 收集所有 MeshRendererComponent                        │  │
-│     │  │ • 按 RenderQueue 分组（OPAQUE → TRANSPARENT）           │  │
-│     │  │ • 按 Material 排序，减少状态切换                        │  │
-│     │  │ • 透明物体按深度排序（远→近）                           │  │
-│     │  │ • 批量渲染                                               │  │
+│     │  │ InstancedRenderSystem (-100) → MeshRenderSystem (0)     │  │
+│     │  │ • 实例化渲染、网格批量渲染                               │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ LineRenderSystem / SpriteRenderSystem                   │  │
-│     │  │ • 收集线条/精灵                                          │  │
-│     │  │ • 批量渲染                                               │  │
+│     │  │ LineRenderSystem (300) → SpriteRenderSystem (400)       │  │
+│     │  │ • 线条渲染、2D 精灵渲染                                  │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ ParticleRenderSystem                                    │  │
-│     │  │ • GPU 路径：SSBO + Compute Shader                       │  │
-│     │  │ • CPU 路径：收集到 FloatBuffer + Instanced Draw         │  │
+│     │  │ ParticleRenderSystem (500)                              │  │
+│     │  │ • GPU/CPU 路径粒子渲染                                   │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                         ↓                                      │
 │     │  ┌─────────────────────────────────────────────────────────┐  │
-│     │  │ PostProcessSystem                                       │  │
-│     │  │ • Bloom 提取 → 模糊 → 合成                              │  │
-│     │  │ • 色调映射                                               │  │
+│     │  │ PostProcessSystem (900) → DebugRenderSystem (1000)      │  │
+│     │  │ • 后处理效果、调试可视化                                 │  │
 │     │  └─────────────────────────────────────────────────────────┘  │
 │     │                                                                │
 │                                                                      │
@@ -876,32 +862,138 @@ new LifetimeComponent()
 
 ## 五、System 参考
 
-### 5.1 UPDATE 阶段系统
+### 5.1 优先级设计原则
 
-| 系统 | 优先级 | 职责 |
-|------|--------|------|
-| TransformSystem | -1000 | 计算世界矩阵、方向向量 |
-| CameraSystem | 100 | 计算投影/视图矩阵 |
-| LightProbeSystem | - | 采样 MC 光照 |
-| ParticleEmitSystem | - | 粒子发射 |
-| ParticlePhysicsSystem | - | 粒子物理模拟 |
-| LifetimeSystem | - | 生命周期管理 |
-| TrailSystem | - | 拖尾点记录 |
-| FrustumCullingSystem | - | 视锥剔除 |
-| LODSystem | - | LOD 级别切换 |
+- **数字越小越先执行**
+- **相邻系统间隔 100**，用户可在 ±1~99 范围内插入自定义 System
+- UPDATE 阶段优先级范围：**-1000 ~ 10000**
+- RENDER 阶段优先级范围：**-100 ~ 1000**
 
-### 5.2 RENDER 阶段系统
+### 5.2 UPDATE 阶段系统
 
-| 系统 | 优先级 | 职责 |
-|------|--------|------|
-| MeshRenderSystem | 0 | 网格批量渲染 |
-| InstancedRenderSystem | - | 实例化渲染 |
-| LineRenderSystem | 100 | 线条渲染 |
-| SpriteRenderSystem | - | 2D 精灵渲染 |
-| ParticleRenderSystem | - | 粒子渲染 |
-| PostProcessSystem | - | 后处理效果 |
-| WorldSpaceUISystem | - | 3D→2D UI 投影 |
-| DebugRenderSystem | 1000 | 调试可视化 |
+| 系统 | 优先级 | 职责 | 用户可插入范围 |
+|------|--------|------|---------------|
+| TransformSystem | -1000 | 计算世界矩阵、方向向量 | |
+| LODSystem | -800 | LOD 级别切换 | -999 ~ -801 |
+| FrustumCullingSystem | -500 | 视锥剔除 | -799 ~ -501 |
+| LightProbeSystem | 0 | 采样 MC 光照 | -499 ~ -1 |
+| CameraSystem | 100 | 计算投影/视图矩阵 | 1 ~ 99 |
+| WorldSpaceUISystem | 150 | 3D→2D UI 投影 | 101 ~ 149 |
+| ParticleEmitSystem | 200 | 粒子发射 | 151 ~ 199 |
+| ParticlePhysicsSystem | 300 | 粒子物理模拟 | 201 ~ 299 |
+| TrailSystem | 400 | 拖尾点记录 | 301 ~ 399 |
+| LifetimeSystem | 10000 | 生命周期管理（最后执行） | 401 ~ 9999 |
+
+### 5.3 RENDER 阶段系统
+
+| 系统 | 优先级 | 职责 | 用户可插入范围 |
+|------|--------|------|---------------|
+| InstancedRenderSystem | -100 | 实例化渲染（最先） | |
+| MeshRenderSystem | 0 | 网格批量渲染 | -99 ~ -1 |
+| LineRenderSystem | 300 | 线条渲染 | 1 ~ 299 |
+| SpriteRenderSystem | 400 | 2D 精灵渲染 | 301 ~ 399 |
+| ParticleRenderSystem | 500 | 粒子渲染 | 401 ~ 499 |
+| PostProcessSystem | 900 | 后处理效果 | 501 ~ 899 |
+| DebugRenderSystem | 1000 | 调试可视化（最后） | 901 ~ 999 |
+
+### 5.4 创建自定义 System
+
+```java
+/**
+ * 自定义 System 示例 - 实现旋转动画
+ */
+@RequiresComponent({ TransformComponent.class, RotationAnimComponent.class })
+public class RotationAnimSystem extends GameSystem {
+
+    @Override
+    public Phase getPhase() {
+        return Phase.UPDATE;  // 逻辑更新阶段
+    }
+
+    @Override
+    public int getPriority() {
+        // 在 TransformSystem (-1000) 之后、CameraSystem (100) 之前
+        // 可选范围：-499 ~ 99
+        return 50;
+    }
+
+    @Override
+    public void onInit() {
+        // 初始化（World.addSystem 时调用）
+    }
+
+    @Override
+    public void onDestroy() {
+        // 销毁（World.removeSystem 时调用）
+    }
+
+    @Override
+    public void update(float deltaTime) {
+        // 每帧执行
+        for (Entity entity : getRequiredEntities()) {
+            TransformComponent transform = entity.getComponent(TransformComponent.class)
+                .orElse(null);
+            RotationAnimComponent anim = entity.getComponent(RotationAnimComponent.class)
+                .orElse(null);
+
+            if (transform != null && anim != null) {
+                float yaw = transform.getYaw() + anim.getSpeed() * deltaTime;
+                transform.setRotation(transform.getPitch(), yaw, transform.getRoll());
+            }
+        }
+    }
+}
+```
+
+**注册自定义 System**：
+
+```java
+// 在 Mod 初始化时注册
+World world = TakoRender.getWorld();
+world.addSystem(new RotationAnimSystem());
+```
+
+**常用基类方法**：
+
+| 方法 | 说明 |
+|------|------|
+| `getWorld()` | 获取所属 World |
+| `getRequiredEntities()` | 获取匹配 @RequiresComponent 的实体列表 |
+| `isEnabled()` | 系统是否启用 |
+| `setEnabled(boolean)` | 设置启用状态 |
+
+**创建自定义 RENDER 阶段 System**：
+
+```java
+/**
+ * 自定义渲染 System - 在 MeshRender 和 LineRender 之间渲染
+ */
+public class MyCustomRenderSystem extends GameSystem {
+
+    @Override
+    public Phase getPhase() {
+        return Phase.RENDER;  // 渲染阶段
+    }
+
+    @Override
+    public int getPriority() {
+        // 在 MeshRenderSystem (0) 和 LineRenderSystem (300) 之间
+        return 150;
+    }
+
+    @Override
+    public void update(float deltaTime) {
+        // 必须使用 GLStateContext 管理 GL 状态
+        try (GLStateContext ctx = GLStateContext.begin()) {
+            ctx.enableBlend();
+            ctx.setBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+            // 渲染逻辑...
+        }
+        // 自动恢复 GL 状态
+    }
+}
+```
 
 ---
 

@@ -51,7 +51,8 @@ public class ParticlePhysicsSystem extends GameSystem {
 
     @Override
     public int getPriority() {
-        return 101;
+        // 在 ParticleEmitSystem (200) 之后
+        return 300;
     }
 
     @Override
