@@ -9,6 +9,7 @@ afterEvaluate {
         publications {
             maven(MavenPublication) {
                 groupId = 'com.github.xsana'
+                artifactId = 'takorender'
             }
         }
     }
