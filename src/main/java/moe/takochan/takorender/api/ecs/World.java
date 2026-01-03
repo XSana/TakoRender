@@ -10,6 +10,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import moe.takochan.takorender.core.debug.SystemProfiler;
+
 /**
  * ECS World - 管理实体和系统
  *
@@ -49,6 +51,9 @@ public class World {
 
     /** 当前渲染层（渲染期间有效） */
     private Layer currentLayer = null;
+
+    /** 系统性能分析器 */
+    private final SystemProfiler profiler = new SystemProfiler();
 
     /**
      * 创建新实体。
@@ -244,11 +249,15 @@ public class World {
      * @param deltaTime 距上次更新的时间（秒）
      */
     public void update(float deltaTime) {
+        profiler.beginFrame();
         for (GameSystem system : systems) {
             if (system.isEnabled() && system.getPhase() == Phase.UPDATE) {
+                profiler.beginSystem(system);
                 system.update(deltaTime);
+                profiler.endSystem(system);
             }
         }
+        profiler.endFrame();
     }
 
     /**
@@ -282,11 +291,15 @@ public class World {
      * @param deltaTime 距上次渲染的时间（秒）
      */
     public void render(float deltaTime) {
+        profiler.beginFrame();
         for (GameSystem system : systems) {
             if (system.isEnabled() && system.getPhase() == Phase.RENDER) {
+                profiler.beginSystem(system);
                 system.update(deltaTime);
+                profiler.endSystem(system);
             }
         }
+        profiler.endFrame();
     }
 
     /**
@@ -328,6 +341,19 @@ public class World {
      */
     public SceneManager getSceneManager() {
         return sceneManager;
+    }
+
+    /**
+     * 获取系统性能分析器。
+     *
+     * <p>
+     * 默认禁用，使用 {@code getProfiler().setEnabled(true)} 启用。
+     * </p>
+     *
+     * @return 系统性能分析器
+     */
+    public SystemProfiler getProfiler() {
+        return profiler;
     }
 
     /**
