@@ -165,9 +165,10 @@ public abstract class ResourceManager<T> {
     public void dispose() {
         for (Map.Entry<String, ResourceHandle<T>> entry : cache.entrySet()) {
             ResourceHandle<T> handle = entry.getValue();
-            handle.invalidate();
             try {
-                unloadResource(handle.get());
+                T resource = handle.get();
+                handle.invalidate();
+                unloadResource(resource);
             } catch (Exception e) {
                 TakoRenderMod.LOG.error("{}: Error unloading resource: {}", name, entry.getKey(), e);
             }
@@ -196,12 +197,15 @@ public abstract class ResourceManager<T> {
      * 卸载并移除资源
      */
     private void unloadAndRemove(String key, ResourceHandle<T> handle) {
-        handle.invalidate();
-        cache.remove(key);
         try {
-            unloadResource(handle.get());
+            T resource = handle.get();
+            handle.invalidate();
+            cache.remove(key);
+            unloadResource(resource);
             TakoRenderMod.LOG.debug("{}: Unloaded resource: {}", name, key);
         } catch (Exception e) {
+            handle.invalidate();
+            cache.remove(key);
             TakoRenderMod.LOG.error("{}: Error unloading resource: {}", name, key, e);
         }
     }

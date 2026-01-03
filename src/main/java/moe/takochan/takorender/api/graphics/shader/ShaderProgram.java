@@ -134,9 +134,9 @@ public class ShaderProgram implements AutoCloseable {
     public static int[] getMaxWorkGroupSize() {
         if (maxWorkGroupSize == null && isComputeShaderSupported()) {
             maxWorkGroupSize = new int[3];
-            maxWorkGroupSize[0] = GL11.glGetInteger(GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE);
-            maxWorkGroupSize[1] = maxWorkGroupSize[0];
-            maxWorkGroupSize[2] = maxWorkGroupSize[0];
+            maxWorkGroupSize[0] = GL30.glGetInteger(GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0);
+            maxWorkGroupSize[1] = GL30.glGetInteger(GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1);
+            maxWorkGroupSize[2] = GL30.glGetInteger(GL43.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2);
         }
         return maxWorkGroupSize != null ? maxWorkGroupSize : new int[] { 0, 0, 0 };
     }

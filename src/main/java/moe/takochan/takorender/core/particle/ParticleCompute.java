@@ -452,10 +452,10 @@ public class ParticleCompute {
         setUniform("uSizeMax", emitter.getSizeMax());
         setUniform("uColor", emitter.getColorR(), emitter.getColorG(), emitter.getColorB(), emitter.getColorA());
         setUniform("uParticleType", emitter.getParticleType());
-        setUniform("uRotationMin", 0.0f);
-        setUniform("uRotationMax", 0.0f);
-        setUniform("uAngularVelMin", 0.0f);
-        setUniform("uAngularVelMax", 0.0f);
+        setUniform("uRotationMin", emitter.getRotationMin());
+        setUniform("uRotationMax", emitter.getRotationMax());
+        setUniform("uAngularVelMin", emitter.getAngularVelocityMin());
+        setUniform("uAngularVelMax", emitter.getAngularVelocityMax());
 
         buffer.bindToCompute(PARTICLE_SSBO_BINDING);
         buffer.bindAtomicCounter(COUNTER_BINDING);

@@ -226,6 +226,14 @@ public class ParticleEmitter {
         return shapeParam3;
     }
 
+    public boolean isEmitFromSurface() {
+        return emitFromSurface;
+    }
+
+    public boolean isEmitAlongNormal() {
+        return emitAlongNormal;
+    }
+
     // ==================== 发射控制设置 ====================
 
     public ParticleEmitter setRate(float rate) {
@@ -258,6 +266,10 @@ public class ParticleEmitter {
 
     public boolean isEmitting() {
         return emitting;
+    }
+
+    public float getBurstInterval() {
+        return burstInterval;
     }
 
     // ==================== 生命周期设置 ====================
@@ -320,6 +332,10 @@ public class ParticleEmitter {
 
     public float getSpeed() {
         return speed;
+    }
+
+    public float getVelocityVariation() {
+        return velocityVariation;
     }
 
     // ==================== 大小设置 ====================
@@ -415,6 +431,22 @@ public class ParticleEmitter {
         this.angularVelocityMin = min;
         this.angularVelocityMax = max;
         return this;
+    }
+
+    public float getRotationMin() {
+        return rotationMin;
+    }
+
+    public float getRotationMax() {
+        return rotationMax;
+    }
+
+    public float getAngularVelocityMin() {
+        return angularVelocityMin;
+    }
+
+    public float getAngularVelocityMax() {
+        return angularVelocityMax;
     }
 
     // ==================== 生命周期曲线设置 ====================

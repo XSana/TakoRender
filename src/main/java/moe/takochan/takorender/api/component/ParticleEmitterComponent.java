@@ -146,37 +146,57 @@ public class ParticleEmitterComponent extends Component {
      */
     public static ParticleEmitterComponent fromEmitter(ParticleEmitter emitter) {
         ParticleEmitterComponent c = new ParticleEmitterComponent();
+        // 形状
         c.shape = emitter.getShape();
         c.shapeParam1 = emitter.getShapeParam1();
         c.shapeParam2 = emitter.getShapeParam2();
         c.shapeParam3 = emitter.getShapeParam3();
+        c.emitFromSurface = emitter.isEmitFromSurface();
+        c.emitAlongNormal = emitter.isEmitAlongNormal();
+        // 发射控制
         c.emissionRate = emitter.getEmissionRate();
         c.burstCount = emitter.getBurstCount();
+        c.burstInterval = emitter.getBurstInterval();
         c.emitting = emitter.isEmitting();
+        // 生命周期
         c.lifetimeMin = emitter.getLifetimeMin();
         c.lifetimeMax = emitter.getLifetimeMax();
+        // 速度
         c.velocityX = emitter.getVelocityX();
         c.velocityY = emitter.getVelocityY();
         c.velocityZ = emitter.getVelocityZ();
         c.speed = emitter.getSpeed();
+        c.velocityVariation = emitter.getVelocityVariation();
+        // 大小
         c.sizeMin = emitter.getSizeMin();
         c.sizeMax = emitter.getSizeMax();
+        // 颜色
         c.colorR = emitter.getColorR();
         c.colorG = emitter.getColorG();
         c.colorB = emitter.getColorB();
         c.colorA = emitter.getColorA();
+        // 旋转
+        c.rotationMin = emitter.getRotationMin();
+        c.rotationMax = emitter.getRotationMax();
+        c.angularVelocityMin = emitter.getAngularVelocityMin();
+        c.angularVelocityMax = emitter.getAngularVelocityMax();
+        // 生命周期曲线
         c.colorOverLifetime = emitter.getColorOverLifetime();
         c.sizeOverLifetime = emitter.getSizeOverLifetime();
+        // 力场
         c.forces.addAll(emitter.getForces());
+        // 碰撞
         c.collisionMode = emitter.getCollisionMode();
         c.collisionResponse = emitter.getCollisionResponse();
         c.bounciness = emitter.getBounciness();
+        c.friction = emitter.getFriction();
         c.bounceChance = emitter.getBounceChance();
         c.bounceSpread = emitter.getBounceSpread();
         c.collisionPlaneNX = emitter.getCollisionPlaneNX();
         c.collisionPlaneNY = emitter.getCollisionPlaneNY();
         c.collisionPlaneNZ = emitter.getCollisionPlaneNZ();
         c.collisionPlaneD = emitter.getCollisionPlaneD();
+        // 子发射器
         c.subEmitters.addAll(emitter.getSubEmitters());
         return c;
     }
