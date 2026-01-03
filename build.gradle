@@ -1,17 +1,6 @@
 
 plugins {
     id 'com.gtnewhorizons.gtnhconvention'
-    id 'signing'
-}
-
-// Maven Central 签名配置
-signing {
-    def signingKey = findProperty("signingKey") ?: System.getenv("SIGNING_KEY")
-    def signingPassword = findProperty("signingPassword") ?: System.getenv("SIGNING_PASSWORD")
-    if (signingKey) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
-        sign publishing.publications
-    }
 }
 
 // 配置运行任务使用不同的工作目录
