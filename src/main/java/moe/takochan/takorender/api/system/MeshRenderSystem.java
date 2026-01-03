@@ -19,6 +19,7 @@ import moe.takochan.takorender.api.component.LODComponent;
 import moe.takochan.takorender.api.component.LayerComponent;
 import moe.takochan.takorender.api.component.LightProbeComponent;
 import moe.takochan.takorender.api.component.MeshRendererComponent;
+import moe.takochan.takorender.api.component.StaticFlagsComponent;
 import moe.takochan.takorender.api.component.TransformComponent;
 import moe.takochan.takorender.api.component.VisibilityComponent;
 import moe.takochan.takorender.api.ecs.Entity;
@@ -178,6 +179,13 @@ public class MeshRenderSystem extends GameSystem {
             .getActiveDimensionId();
 
         for (Entity entity : getRequiredEntities()) {
+            // 跳过 BATCHING 实体（由 InstancedRenderSystem 处理）
+            StaticFlagsComponent flags = entity.getComponent(StaticFlagsComponent.class)
+                .orElse(null);
+            if (flags != null && flags.isBatchable()) {
+                continue;
+            }
+
             // 检查可见性
             VisibilityComponent visibility = entity.getComponent(VisibilityComponent.class)
                 .orElse(null);

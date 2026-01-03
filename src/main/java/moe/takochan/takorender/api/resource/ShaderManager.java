@@ -59,6 +59,8 @@ public class ShaderManager extends ResourceManager<ShaderProgram> {
     public static final String SHADER_WORLD3D = D + "core/world3d";
     public static final String SHADER_WORLD3D_LIT = D + "core/world3d_lit";
     public static final String SHADER_LINE = D + "core/line";
+    public static final String SHADER_MODEL = D + "core/model";
+    public static final String SHADER_INSTANCED = D + "core/instanced";
 
     /** Post-process shaders */
     public static final String SHADER_BRIGHTNESS_EXTRACT = D + "postprocess/brightness_extract";
@@ -73,7 +75,8 @@ public class ShaderManager extends ResourceManager<ShaderProgram> {
 
     /** 框架内置着色器 */
     private static final String[] BUILTIN_SHADERS = { SHADER_GUI_COLOR, SHADER_WORLD3D, SHADER_WORLD3D_LIT, SHADER_LINE,
-        SHADER_BRIGHTNESS_EXTRACT, SHADER_BLUR, SHADER_COMPOSITE, SHADER_PARTICLE, SHADER_PARTICLE_MESH, };
+        SHADER_MODEL, SHADER_INSTANCED, SHADER_BRIGHTNESS_EXTRACT, SHADER_BLUR, SHADER_COMPOSITE, SHADER_PARTICLE,
+        SHADER_PARTICLE_MESH, };
 
     /** 框架内置 Compute Shader（需要 OpenGL 4.3+） */
     private static final String[] BUILTIN_COMPUTE_SHADERS = { SHADER_PARTICLE_UPDATE, SHADER_PARTICLE_EMIT, };
