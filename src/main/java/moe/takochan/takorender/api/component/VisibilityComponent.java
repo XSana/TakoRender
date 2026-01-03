@@ -43,6 +43,9 @@ public class VisibilityComponent extends Component {
     /** 用户控制的可见性 */
     private boolean visible = true;
 
+    /** FrustumCullingSystem 写入的剔除结果 */
+    private boolean culled = false;
+
     /**
      * 创建默认可见性组件（可见）
      */
@@ -78,15 +81,33 @@ public class VisibilityComponent extends Component {
     }
 
     /**
+     * 检查是否被视锥剔除
+     *
+     * @return true 表示被剔除（在视锥外）
+     */
+    public boolean isCulled() {
+        return culled;
+    }
+
+    /**
+     * 设置剔除状态（由 FrustumCullingSystem 调用）
+     *
+     * @param culled 是否被剔除
+     */
+    public void setCulled(boolean culled) {
+        this.culled = culled;
+    }
+
+    /**
      * 检查是否应该渲染
+     *
      * <p>
-     * 当前版本：仅检查 visible。
-     * Phase 3.1 后：检查 visible && !culled。
+     * 渲染条件：visible && !culled
      * </p>
      *
      * @return 是否应该渲染
      */
     public boolean shouldRender() {
-        return visible;
+        return visible && !culled;
     }
 }

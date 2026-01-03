@@ -4,11 +4,13 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import moe.takochan.takorender.api.component.BoundsComponent;
 import moe.takochan.takorender.api.component.TransformComponent;
 import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
+import moe.takochan.takorender.api.graphics.AABB;
 
 /**
  * 变换系统 - 负责更新所有 TransformComponent 的矩阵和方向向量
@@ -66,9 +68,20 @@ public class TransformSystem extends GameSystem {
                 continue;
             }
 
-            if (transform.isDirty()) {
+            boolean transformDirty = transform.isDirty();
+
+            if (transformDirty) {
                 updateMatrices(transform);
                 transform.clearDirty();
+            }
+
+            // 更新 BoundsComponent 的 worldBounds
+            BoundsComponent bounds = entity.getComponent(BoundsComponent.class)
+                .orElse(null);
+            if (bounds != null && (transformDirty || bounds.isDirty())) {
+                AABB worldBounds = bounds.getLocalBounds()
+                    .transform(transform.getWorldMatrix());
+                bounds.setWorldBounds(worldBounds);
             }
         }
     }
