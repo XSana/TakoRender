@@ -72,7 +72,23 @@ public class LineRendererComponent extends Component {
     private float colorB = 1.0f;
     private float colorA = 1.0f;
 
+    /** 终点颜色（用于渐变） */
+    private float endColorR = 1.0f;
+    private float endColorG = 1.0f;
+    private float endColorB = 1.0f;
+    private float endColorA = 1.0f;
+
+    /** 是否启用颜色渐变 */
+    private boolean colorGradient = false;
+
     private float lineWidth = 1.0f;
+
+    /** 终点线宽（用于宽度渐变） */
+    private float endLineWidth = 1.0f;
+
+    /** 是否启用宽度渐变 */
+    private boolean widthGradient = false;
+
     private boolean depthTest = true;
 
     /**
@@ -270,6 +286,106 @@ public class LineRendererComponent extends Component {
     }
 
     /**
+     * 获取终点颜色 R 分量（0-1）
+     */
+    public float getEndColorR() {
+        return endColorR;
+    }
+
+    /**
+     * 获取终点颜色 G 分量（0-1）
+     */
+    public float getEndColorG() {
+        return endColorG;
+    }
+
+    /**
+     * 获取终点颜色 B 分量（0-1）
+     */
+    public float getEndColorB() {
+        return endColorB;
+    }
+
+    /**
+     * 获取终点颜色 A 分量（0-1）
+     */
+    public float getEndColorA() {
+        return endColorA;
+    }
+
+    /**
+     * 设置终点颜色
+     *
+     * @param r 红色（0-1）
+     * @param g 绿色（0-1）
+     * @param b 蓝色（0-1）
+     * @param a 透明度（0-1）
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setEndColor(float r, float g, float b, float a) {
+        this.endColorR = r;
+        this.endColorG = g;
+        this.endColorB = b;
+        this.endColorA = a;
+        return this;
+    }
+
+    /**
+     * 设置终点颜色（不透明）
+     *
+     * @param r 红色（0-1）
+     * @param g 绿色（0-1）
+     * @param b 蓝色（0-1）
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setEndColor(float r, float g, float b) {
+        return setEndColor(r, g, b, 1.0f);
+    }
+
+    /**
+     * 设置颜色渐变
+     *
+     * <p>
+     * 线条从起点颜色渐变到终点颜色。
+     * </p>
+     *
+     * @param startR 起点红色
+     * @param startG 起点绿色
+     * @param startB 起点蓝色
+     * @param startA 起点透明度
+     * @param endR   终点红色
+     * @param endG   终点绿色
+     * @param endB   终点蓝色
+     * @param endA   终点透明度
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setColorGradient(float startR, float startG, float startB, float startA, float endR,
+        float endG, float endB, float endA) {
+        setColor(startR, startG, startB, startA);
+        setEndColor(endR, endG, endB, endA);
+        this.colorGradient = true;
+        return this;
+    }
+
+    /**
+     * 检查是否启用颜色渐变
+     */
+    public boolean isColorGradient() {
+        return colorGradient;
+    }
+
+    /**
+     * 设置是否启用颜色渐变
+     *
+     * @param colorGradient 是否启用
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setColorGradient(boolean colorGradient) {
+        this.colorGradient = colorGradient;
+        return this;
+    }
+
+    /**
      * 获取线宽
      */
     public float getLineWidth() {
@@ -284,6 +400,60 @@ public class LineRendererComponent extends Component {
      */
     public LineRendererComponent setLineWidth(float lineWidth) {
         this.lineWidth = lineWidth;
+        return this;
+    }
+
+    /**
+     * 获取终点线宽
+     */
+    public float getEndLineWidth() {
+        return endLineWidth;
+    }
+
+    /**
+     * 设置终点线宽
+     *
+     * @param endLineWidth 终点线宽（像素）
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setEndLineWidth(float endLineWidth) {
+        this.endLineWidth = endLineWidth;
+        return this;
+    }
+
+    /**
+     * 设置线宽渐变
+     *
+     * <p>
+     * 线条从起点宽度渐变到终点宽度，用于创建拖尾效果。
+     * </p>
+     *
+     * @param startWidth 起点线宽
+     * @param endWidth   终点线宽
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setWidthGradient(float startWidth, float endWidth) {
+        this.lineWidth = startWidth;
+        this.endLineWidth = endWidth;
+        this.widthGradient = true;
+        return this;
+    }
+
+    /**
+     * 检查是否启用宽度渐变
+     */
+    public boolean isWidthGradient() {
+        return widthGradient;
+    }
+
+    /**
+     * 设置是否启用宽度渐变
+     *
+     * @param widthGradient 是否启用
+     * @return this（链式调用）
+     */
+    public LineRendererComponent setWidthGradient(boolean widthGradient) {
+        this.widthGradient = widthGradient;
         return this;
     }
 

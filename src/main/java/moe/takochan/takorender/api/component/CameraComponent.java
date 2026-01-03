@@ -1,6 +1,8 @@
 package moe.takochan.takorender.api.component;
 
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 
 import moe.takochan.takorender.api.ecs.Component;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
@@ -442,6 +444,146 @@ public class CameraComponent extends Component {
      */
     public Matrix4f getViewProjectionMatrix() {
         return viewProjectionMatrix;
+    }
+
+    /**
+     * 将世界坐标转换为屏幕坐标（NDC）
+     *
+     * <p>
+     * 返回值 (x, y, z) 中：
+     * </p>
+     * <ul>
+     * <li>x, y: 屏幕坐标（-1 到 1，左下角为 -1,-1）</li>
+     * <li>z: 深度值（0 到 1，近平面为 0）</li>
+     * <li>w: 用于判断点是否在相机前方（正值表示在前方）</li>
+     * </ul>
+     *
+     * @param worldPos 世界坐标
+     * @return NDC 坐标 (x, y, z, w)，w 为裁剪空间 w 分量
+     */
+    public Vector4f project(Vector3f worldPos) {
+        Vector4f clipPos = new Vector4f(worldPos.x, worldPos.y, worldPos.z, 1.0f);
+        clipPos.mul(viewProjectionMatrix);
+
+        // 保存 w 用于判断是否在相机前方
+        float w = clipPos.w;
+
+        // 透视除法得到 NDC
+        if (Math.abs(w) > 1e-6f) {
+            clipPos.x /= w;
+            clipPos.y /= w;
+            clipPos.z /= w;
+        }
+
+        // 返回 NDC (x, y, z) 和原始 w
+        return new Vector4f(clipPos.x, clipPos.y, clipPos.z, w);
+    }
+
+    /**
+     * 将世界坐标转换为视口像素坐标
+     *
+     * <p>
+     * 返回值 (x, y) 为视口内的像素坐标，原点在左下角。
+     * z 分量为深度值，w 分量用于判断是否在相机前方。
+     * </p>
+     *
+     * @param worldPos 世界坐标
+     * @return 视口坐标 (pixelX, pixelY, depth, clipW)
+     */
+    public Vector4f projectToViewport(Vector3f worldPos) {
+        Vector4f ndc = project(worldPos);
+
+        // NDC (-1 to 1) 转换为视口像素坐标
+        float pixelX = viewportX + (ndc.x + 1.0f) * 0.5f * viewportWidth;
+        float pixelY = viewportY + (ndc.y + 1.0f) * 0.5f * viewportHeight;
+
+        return new Vector4f(pixelX, pixelY, ndc.z, ndc.w);
+    }
+
+    /**
+     * 将屏幕坐标（NDC）转换为世界坐标
+     *
+     * <p>
+     * 需要提供深度值来确定射线上的具体点。
+     * </p>
+     *
+     * @param ndcX  NDC x 坐标（-1 到 1）
+     * @param ndcY  NDC y 坐标（-1 到 1）
+     * @param depth 深度值（0 到 1，0 为近平面，1 为远平面）
+     * @return 世界坐标
+     */
+    public Vector3f unproject(float ndcX, float ndcY, float depth) {
+        // 计算逆视图投影矩阵
+        Matrix4f invViewProj = new Matrix4f(viewProjectionMatrix).invert();
+
+        // NDC 深度转换为裁剪空间 z（-1 到 1）
+        float clipZ = depth * 2.0f - 1.0f;
+
+        // 裁剪空间坐标
+        Vector4f clipPos = new Vector4f(ndcX, ndcY, clipZ, 1.0f);
+        clipPos.mul(invViewProj);
+
+        // 透视除法
+        if (Math.abs(clipPos.w) > 1e-6f) {
+            clipPos.x /= clipPos.w;
+            clipPos.y /= clipPos.w;
+            clipPos.z /= clipPos.w;
+        }
+
+        return new Vector3f(clipPos.x, clipPos.y, clipPos.z);
+    }
+
+    /**
+     * 将视口像素坐标转换为世界坐标
+     *
+     * @param pixelX 视口 x 坐标（像素）
+     * @param pixelY 视口 y 坐标（像素）
+     * @param depth  深度值（0 到 1）
+     * @return 世界坐标
+     */
+    public Vector3f unprojectFromViewport(float pixelX, float pixelY, float depth) {
+        // 视口像素坐标转换为 NDC
+        float ndcX = (pixelX - viewportX) / viewportWidth * 2.0f - 1.0f;
+        float ndcY = (pixelY - viewportY) / viewportHeight * 2.0f - 1.0f;
+
+        return unproject(ndcX, ndcY, depth);
+    }
+
+    /**
+     * 获取从相机发出经过屏幕点的射线方向
+     *
+     * <p>
+     * 用于拾取（picking）等功能。返回归一化的方向向量。
+     * </p>
+     *
+     * @param ndcX NDC x 坐标（-1 到 1）
+     * @param ndcY NDC y 坐标（-1 到 1）
+     * @return 射线方向（归一化）
+     */
+    public Vector3f getRayDirection(float ndcX, float ndcY) {
+        Vector3f nearPoint = unproject(ndcX, ndcY, 0.0f);
+        Vector3f farPoint = unproject(ndcX, ndcY, 1.0f);
+
+        return farPoint.sub(nearPoint)
+            .normalize();
+    }
+
+    /**
+     * 检查世界坐标点是否在相机视锥内
+     *
+     * @param worldPos 世界坐标
+     * @return true 如果点在视锥内（可见）
+     */
+    public boolean isInFrustum(Vector3f worldPos) {
+        Vector4f projected = project(worldPos);
+
+        // 检查是否在相机前方且在 NDC 范围内
+        return projected.w > 0 && projected.x >= -1.0f
+            && projected.x <= 1.0f
+            && projected.y >= -1.0f
+            && projected.y <= 1.0f
+            && projected.z >= 0.0f
+            && projected.z <= 1.0f;
     }
 
     /**
