@@ -1,17 +1,16 @@
 
 plugins {
     id 'com.gtnewhorizons.gtnhconvention'
+    id 'signing'
 }
 
-// GitHub Packages 要求 groupId 以仓库所有者命名空间开头
-afterEvaluate {
-    publishing {
-        publications {
-            maven(MavenPublication) {
-                groupId = 'com.github.xsana'
-                artifactId = 'takorender'
-            }
-        }
+// Maven Central 签名配置
+signing {
+    def signingKey = findProperty("signingKey") ?: System.getenv("SIGNING_KEY")
+    def signingPassword = findProperty("signingPassword") ?: System.getenv("SIGNING_PASSWORD")
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign publishing.publications
     }
 }
 
