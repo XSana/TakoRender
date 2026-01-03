@@ -9,20 +9,21 @@ permissions:
 
 jobs:
   # GTNH 工作流负责构建和 GitHub Release
-  release-tags:
+  build:
     uses: GTNewHorizons/GTNH-Actions-Workflows/.github/workflows/release-tags.yml@master
 
-  # 单独处理 Maven Central 发布
+  # 发布到 Maven Central（需要 Java 21 运行 Gradle）
   publish-maven-central:
-    needs: release-tags
+    needs: build
+    if: vars.MAVEN_PUBLISHING_URL != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '8'
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Setup Gradle
