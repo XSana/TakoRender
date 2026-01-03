@@ -12,7 +12,12 @@ Minecraft 1.7.10 现代化 ECS 渲染框架
 
 ```gradle
 repositories {
-    maven { url 'https://jitpack.io' }
+    maven {
+        url 'https://jitpack.io'
+        content {
+            includeGroup 'com.github.XSana'
+        }
+    }
 }
 
 dependencies {
