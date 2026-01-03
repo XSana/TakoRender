@@ -15,7 +15,7 @@ repositories {
     maven {
         url 'https://jitpack.io'
         content {
-            includeGroup 'com.github.XSana'
+            includeGroupByRegex 'com\\.github\\..+'
         }
     }
 }
