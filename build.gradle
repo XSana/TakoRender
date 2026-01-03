@@ -3,6 +3,9 @@ plugins {
     id 'com.gtnewhorizons.gtnhconvention'
 }
 
+// GitHub Packages 要求 groupId 以账户/组织命名空间开头，这里覆盖为 com.github.xsana
+group = 'com.github.xsana'
+
 // 配置运行任务使用不同的工作目录
 tasks.named("runClient", JavaExec) {
     workingDir = file("${projectDir}/run/client")
