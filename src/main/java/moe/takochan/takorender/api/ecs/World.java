@@ -20,12 +20,19 @@ import java.util.concurrent.atomic.AtomicLong;
  * <li>创建和管理 Entity</li>
  * <li>维护 Component 索引（O(1) 查询）</li>
  * <li>管理和调度 GameSystem</li>
+ * <li>支持 Layer 分层渲染</li>
  * </ul>
  *
  * <p>
  * <b>Component 索引优化</b>:
  * 使用 {@code Map<Class, Set<Entity>>} 维护 Component 类型到 Entity 的映射，
  * 实现 O(1) 复杂度的 Component 查询，替代 O(N) 的遍历方式。
+ * </p>
+ *
+ * <p>
+ * <b>Layer 分层渲染</b>:
+ * 使用 {@link #update(Layer, float)} 和 {@link #render(Layer)} 按层更新和渲染。
+ * System 通过 {@link #getCurrentLayer()} 获取当前渲染层进行筛选。
  * </p>
  */
 public class World {
@@ -36,6 +43,12 @@ public class World {
 
     /** Component 类型索引 - 支持 O(1) 查询 */
     private final Map<Class<? extends Component>, Set<Entity>> componentIndex = new HashMap<>();
+
+    /** 场景管理器 */
+    private final SceneManager sceneManager = new SceneManager(this);
+
+    /** 当前渲染层（渲染期间有效） */
+    private Layer currentLayer = null;
 
     /**
      * 创建新实体。
@@ -239,6 +252,26 @@ public class World {
     }
 
     /**
+     * 执行指定 Layer 的 UPDATE 阶段系统。
+     *
+     * <p>
+     * 设置当前 Layer，然后调用所有 UPDATE 阶段的系统。
+     * System 可通过 {@link #getCurrentLayer()} 获取当前层进行筛选。
+     * </p>
+     *
+     * @param layer     渲染层
+     * @param deltaTime 距上次更新的时间（秒）
+     */
+    public void update(Layer layer, float deltaTime) {
+        this.currentLayer = layer;
+        try {
+            update(deltaTime);
+        } finally {
+            this.currentLayer = null;
+        }
+    }
+
+    /**
      * 执行 RENDER 阶段的所有系统。
      *
      * <p>
@@ -257,12 +290,65 @@ public class World {
     }
 
     /**
+     * 执行指定 Layer 的 RENDER 阶段系统。
+     *
+     * <p>
+     * 设置当前 Layer，然后调用所有 RENDER 阶段的系统。
+     * System 可通过 {@link #getCurrentLayer()} 获取当前层进行筛选。
+     * </p>
+     *
+     * @param layer 渲染层
+     */
+    public void render(Layer layer) {
+        this.currentLayer = layer;
+        try {
+            render(0f);
+        } finally {
+            this.currentLayer = null;
+        }
+    }
+
+    /**
+     * 获取当前渲染层。
+     *
+     * <p>
+     * 仅在 update(Layer, deltaTime) 或 render(Layer) 期间有效。
+     * </p>
+     *
+     * @return 当前渲染层，如果不在分层渲染期间返回 null
+     */
+    public Layer getCurrentLayer() {
+        return currentLayer;
+    }
+
+    /**
+     * 获取场景管理器。
+     *
+     * @return 场景管理器
+     */
+    public SceneManager getSceneManager() {
+        return sceneManager;
+    }
+
+    /**
      * 清空所有实体和系统。
      */
     public void clear() {
         for (GameSystem system : new ArrayList<>(systems)) {
             removeSystem(system);
         }
+        entities.clear();
+        componentIndex.clear();
+    }
+
+    /**
+     * 清空所有实体（保留系统）。
+     *
+     * <p>
+     * 用于存档退出等场景，清空所有 Entity 但保留 System。
+     * </p>
+     */
+    public void clearAllEntities() {
         entities.clear();
         componentIndex.clear();
     }

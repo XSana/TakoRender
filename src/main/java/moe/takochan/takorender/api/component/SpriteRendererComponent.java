@@ -54,9 +54,6 @@ public class SpriteRendererComponent extends Component {
     /** 颜色 A 分量（0-1） */
     private float colorA = 1.0f;
 
-    /** 是否可见 */
-    private boolean visible = true;
-
     /** 排序顺序（同队列内排序） */
     private int sortingOrder = 0;
 
@@ -197,26 +194,6 @@ public class SpriteRendererComponent extends Component {
         this.colorG = ((color >> 16) & 0xFF) / 255f;
         this.colorB = ((color >> 8) & 0xFF) / 255f;
         this.colorA = (color & 0xFF) / 255f;
-        return this;
-    }
-
-    /**
-     * 检查是否可见
-     *
-     * @return 是否可见
-     */
-    public boolean isVisible() {
-        return visible;
-    }
-
-    /**
-     * 设置是否可见
-     *
-     * @param visible 是否可见
-     * @return this（链式调用）
-     */
-    public SpriteRendererComponent setVisible(boolean visible) {
-        this.visible = visible;
         return this;
     }
 

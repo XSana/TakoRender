@@ -74,7 +74,6 @@ public class LineRendererComponent extends Component {
 
     private float lineWidth = 1.0f;
     private boolean depthTest = true;
-    private boolean visible = true;
 
     /**
      * 创建默认线条渲染组件
@@ -303,24 +302,6 @@ public class LineRendererComponent extends Component {
      */
     public LineRendererComponent setDepthTest(boolean depthTest) {
         this.depthTest = depthTest;
-        return this;
-    }
-
-    /**
-     * 检查是否可见
-     */
-    public boolean isVisible() {
-        return visible;
-    }
-
-    /**
-     * 设置是否可见
-     *
-     * @param visible 是否可见
-     * @return this（链式调用）
-     */
-    public LineRendererComponent setVisible(boolean visible) {
-        this.visible = visible;
         return this;
     }
 }

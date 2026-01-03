@@ -8,10 +8,13 @@ import org.lwjgl.opengl.GL11;
 
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
+import moe.takochan.takorender.api.component.LayerComponent;
 import moe.takochan.takorender.api.component.SpriteRendererComponent;
 import moe.takochan.takorender.api.component.TransformComponent;
+import moe.takochan.takorender.api.component.VisibilityComponent;
 import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
+import moe.takochan.takorender.api.ecs.Layer;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.graphics.batch.SpriteBatch;
@@ -106,10 +109,29 @@ public class SpriteRenderSystem extends GameSystem {
 
         // 收集并排序可见实体
         sortedEntities.clear();
+        Layer currentLayer = getWorld().getCurrentLayer();
+
         for (Entity entity : entities) {
+            // 检查可见性
+            VisibilityComponent visibility = entity.getComponent(VisibilityComponent.class)
+                .orElse(null);
+            if (visibility != null && !visibility.shouldRender()) {
+                continue;
+            }
+
+            // 检查 Layer 筛选（Sprite 通常是 HUD 或 GUI）
+            if (currentLayer != null) {
+                Layer entityLayer = entity.getComponent(LayerComponent.class)
+                    .map(LayerComponent::getLayer)
+                    .orElse(Layer.WORLD_3D);
+                if (entityLayer != currentLayer) {
+                    continue;
+                }
+            }
+
             SpriteRendererComponent sprite = entity.getComponent(SpriteRendererComponent.class)
                 .orElse(null);
-            if (sprite != null && sprite.isVisible()) {
+            if (sprite != null) {
                 sortedEntities.add(entity);
             }
         }

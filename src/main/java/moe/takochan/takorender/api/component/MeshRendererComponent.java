@@ -28,10 +28,10 @@ import moe.takochan.takorender.api.graphics.RenderQueue;
  *     &#64;code
  *     Entity entity = world.createEntity();
  *     entity.addComponent(new TransformComponent(0, 64, 0));
+ *     entity.addComponent(new VisibilityComponent()); // 可见性由 VisibilityComponent 控制
  *     entity.addComponent(
  *         new MeshRendererComponent().setMesh(cubeMesh)
  *             .setMaterial(stoneMaterial)
- *             .setVisible(true)
  *             .setCastShadows(true));
  * }
  * </pre>
@@ -41,7 +41,6 @@ public class MeshRendererComponent extends Component {
 
     private Mesh mesh;
     private Material material;
-    private boolean visible = true;
     private RenderQueue renderQueue = RenderQueue.OPAQUE;
     private int sortingOrder = 0;
     private boolean castShadows = true;
@@ -109,24 +108,6 @@ public class MeshRendererComponent extends Component {
         Material instance = material.instantiate();
         this.material = instance;
         return instance;
-    }
-
-    /**
-     * 检查是否可见
-     */
-    public boolean isVisible() {
-        return visible;
-    }
-
-    /**
-     * 设置是否可见
-     *
-     * @param visible 是否可见
-     * @return this（链式调用）
-     */
-    public MeshRendererComponent setVisible(boolean visible) {
-        this.visible = visible;
-        return this;
     }
 
     /**

@@ -9,10 +9,14 @@ import org.lwjgl.opengl.GL11;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.component.CameraComponent;
+import moe.takochan.takorender.api.component.DimensionComponent;
+import moe.takochan.takorender.api.component.LayerComponent;
 import moe.takochan.takorender.api.component.LineRendererComponent;
 import moe.takochan.takorender.api.component.TransformComponent;
+import moe.takochan.takorender.api.component.VisibilityComponent;
 import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
+import moe.takochan.takorender.api.ecs.Layer;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.graphics.batch.World3DBatch;
@@ -116,12 +120,41 @@ public class LineRenderSystem extends GameSystem {
      * 渲染单个线条实体
      */
     private void renderLineEntity(Entity entity) {
+        // 检查可见性
+        VisibilityComponent visibility = entity.getComponent(VisibilityComponent.class)
+            .orElse(null);
+        if (visibility != null && !visibility.shouldRender()) {
+            return;
+        }
+
+        // 检查 Layer 筛选
+        Layer currentLayer = getWorld().getCurrentLayer();
+        if (currentLayer != null) {
+            Layer entityLayer = entity.getComponent(LayerComponent.class)
+                .map(LayerComponent::getLayer)
+                .orElse(Layer.WORLD_3D);
+            if (entityLayer != currentLayer) {
+                return;
+            }
+        }
+
+        // 检查维度筛选（仅 WORLD_3D 需要）
+        if (currentLayer == Layer.WORLD_3D) {
+            int activeDimension = getWorld().getSceneManager()
+                .getActiveDimensionId();
+            DimensionComponent dimension = entity.getComponent(DimensionComponent.class)
+                .orElse(null);
+            if (dimension != null && dimension.getDimensionId() != activeDimension) {
+                return;
+            }
+        }
+
         LineRendererComponent line = entity.getComponent(LineRendererComponent.class)
             .orElse(null);
         TransformComponent transform = entity.getComponent(TransformComponent.class)
             .orElse(null);
 
-        if (line == null || transform == null || !line.isVisible()) {
+        if (line == null || transform == null) {
             return;
         }
 

@@ -14,11 +14,15 @@ import org.lwjgl.opengl.GL11;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.component.CameraComponent;
+import moe.takochan.takorender.api.component.DimensionComponent;
+import moe.takochan.takorender.api.component.LayerComponent;
 import moe.takochan.takorender.api.component.LightProbeComponent;
 import moe.takochan.takorender.api.component.MeshRendererComponent;
 import moe.takochan.takorender.api.component.TransformComponent;
+import moe.takochan.takorender.api.component.VisibilityComponent;
 import moe.takochan.takorender.api.ecs.Entity;
 import moe.takochan.takorender.api.ecs.GameSystem;
+import moe.takochan.takorender.api.ecs.Layer;
 import moe.takochan.takorender.api.ecs.Phase;
 import moe.takochan.takorender.api.ecs.RequiresComponent;
 import moe.takochan.takorender.api.graphics.Material;
@@ -168,16 +172,43 @@ public class MeshRenderSystem extends GameSystem {
      * 收集并分组所有可渲染实体
      */
     private void collectAndGroupRenderables() {
+        Layer currentLayer = getWorld().getCurrentLayer();
+        int activeDimension = getWorld().getSceneManager()
+            .getActiveDimensionId();
+
         for (Entity entity : getRequiredEntities()) {
+            // 检查可见性
+            VisibilityComponent visibility = entity.getComponent(VisibilityComponent.class)
+                .orElse(null);
+            if (visibility != null && !visibility.shouldRender()) {
+                continue;
+            }
+
+            // 检查 Layer 筛选
+            if (currentLayer != null) {
+                Layer entityLayer = entity.getComponent(LayerComponent.class)
+                    .map(LayerComponent::getLayer)
+                    .orElse(Layer.WORLD_3D);
+                if (entityLayer != currentLayer) {
+                    continue;
+                }
+            }
+
+            // 检查维度筛选（仅 WORLD_3D 需要）
+            if (currentLayer == Layer.WORLD_3D) {
+                DimensionComponent dimension = entity.getComponent(DimensionComponent.class)
+                    .orElse(null);
+                if (dimension != null && dimension.getDimensionId() != activeDimension) {
+                    continue;
+                }
+            }
+
             MeshRendererComponent renderer = entity.getComponent(MeshRendererComponent.class)
                 .orElse(null);
-
-            if (renderer != null && renderer.isVisible()) {
-                if (renderer.getMesh() != null && renderer.getMaterial() != null) {
-                    RenderQueue queue = renderer.getRenderQueue();
-                    queuedRenderables.get(queue)
-                        .add(entity);
-                }
+            if (renderer != null && renderer.getMesh() != null && renderer.getMaterial() != null) {
+                RenderQueue queue = renderer.getRenderQueue();
+                queuedRenderables.get(queue)
+                    .add(entity);
             }
         }
     }
