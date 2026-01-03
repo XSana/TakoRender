@@ -11,6 +11,7 @@ TakoRender is a rendering framework designed for Minecraft 1.7.10 that provides:
 - **OpenGL 3.3 Core Profile** rendering with modern shader support
 - **GPU Particle System** with Compute Shader acceleration
 - **Post-Processing** effects (Bloom, HDR)
+- **Performance Optimizations** (Frustum Culling, LOD, Instanced Rendering)
 
 ## Features
 
@@ -21,11 +22,15 @@ TakoRender is a rendering framework designed for Minecraft 1.7.10 that provides:
 - `World` - ECS world manager with O(1) component indexing
 
 ### Rendering Systems
+- **MeshRenderSystem** - Automatic mesh rendering with material sorting
+- **InstancedRenderSystem** - Batch rendering for static objects (same Mesh+Material)
+- **LineRenderSystem** - Debug line/wireframe rendering
+- **SpriteRenderSystem** - 2D sprite rendering for UI layers
+
+### Batch Rendering
 - **SpriteBatch** - 2D quad batch rendering
 - **World3DBatch** - 3D primitive rendering in world space
 - **World3DBatchLit** - 3D rendering with MC lighting support
-- **MeshRenderSystem** - Automatic mesh rendering with material sorting
-- **LineRenderSystem** - Debug line/wireframe rendering
 
 ### Resource Management
 - **ShaderManager** - Shader loading, caching, and preloading
@@ -42,6 +47,17 @@ TakoRender is a rendering framework designed for Minecraft 1.7.10 that provides:
 - Bloom with configurable threshold and intensity
 - Gaussian blur with ping-pong buffers
 - HDR tone mapping
+
+### Performance Optimizations
+- **Frustum Culling** - Skip rendering objects outside camera view
+- **LOD System** - Distance-based mesh switching with hysteresis
+- **Instanced Rendering** - Single draw call for multiple identical objects
+- **BoundsComponent** - AABB bounding boxes for culling
+
+### Debug Tools
+- **SystemProfiler** - Per-system timing statistics
+- **EntityInspector** - Runtime entity/component inspection
+- **DebugRenderSystem** - Wireframe, bounding box, LOD level visualization
 
 ### GL State Management
 - `GLStateContext` - Automatic state save/restore (replaces glPushAttrib)
@@ -61,6 +77,9 @@ src/main/java/moe/takochan/takorender/
 │   └── resource/               # Resource management (ShaderManager, TextureManager)
 ├── core/                       # Internal implementation
 │   ├── gl/                     # GL utilities (GLStateContext, FrameBuffer)
+│   ├── debug/                  # Debug tools (Profiler, Inspector)
+│   ├── render/                 # Render utilities (BatchKey, InstanceBuffer)
+│   ├── system/                 # Core systems (Frustum, LOD, Instanced)
 │   └── particle/               # Particle internals (Buffer, Compute, Renderer)
 └── proxy/                      # Client/Server proxies
 ```
@@ -72,23 +91,43 @@ src/main/java/moe/takochan/takorender/
 World world = new World();
 
 // Create camera entity
-Entity camera = world.createEntity("MainCamera");
+Entity camera = world.createEntity();
 camera.addComponent(new TransformComponent().setPosition(0, 64, 0));
 camera.addComponent(new CameraComponent().setActive(true).setFov(70));
 
-// Create particle effect
-Entity fire = world.createEntity("Fire");
-fire.addComponent(new TransformComponent().setPosition(10, 65, 10));
-ParticlePresets.applyFire(fire, 1.0f);
+// Create renderable entity with LOD
+Entity tree = world.createEntity();
+tree.addComponent(new TransformComponent().setPosition(10, 64, 10));
+tree.addComponent(new MeshRendererComponent()
+    .setMesh(highDetailMesh)
+    .setMaterial(treeMaterial));
+tree.addComponent(new LODComponent()
+    .addLevel(20.0f, highDetailMesh)
+    .addLevel(50.0f, mediumDetailMesh)
+    .addLevel(100.0f, lowDetailMesh));
+tree.addComponent(new BoundsComponent().setLocalBounds(treeBounds));
+tree.addComponent(new VisibilityComponent());
+
+// Mark for instanced rendering (optional)
+tree.addComponent(new StaticFlagsComponent(StaticFlags.BATCHING));
 
 // Register systems
 world.addSystem(new CameraSystem());
-world.addSystem(new ParticleUpdateSystem());
-world.addSystem(new ParticleRenderSystem());
+world.addSystem(new TransformSystem());
+world.addSystem(new LODSystem());
+world.addSystem(new FrustumCullingSystem());
+world.addSystem(new InstancedRenderSystem());
+world.addSystem(new MeshRenderSystem());
+
+// Enable profiling (optional)
+world.getProfiler().setEnabled(true);
 
 // Game loop
-world.update(deltaTime);  // UPDATE phase
-world.render(deltaTime);  // RENDER phase
+world.update(Layer.WORLD_3D, deltaTime);  // UPDATE phase
+world.render(Layer.WORLD_3D);              // RENDER phase
+
+// Print profiler report
+System.out.println(world.getProfiler().getReport());
 ```
 
 ## Build Commands
