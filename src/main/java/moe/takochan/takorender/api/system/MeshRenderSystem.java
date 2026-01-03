@@ -15,6 +15,7 @@ import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.component.CameraComponent;
 import moe.takochan.takorender.api.component.DimensionComponent;
+import moe.takochan.takorender.api.component.LODComponent;
 import moe.takochan.takorender.api.component.LayerComponent;
 import moe.takochan.takorender.api.component.LightProbeComponent;
 import moe.takochan.takorender.api.component.MeshRendererComponent;
@@ -333,7 +334,17 @@ public class MeshRenderSystem extends GameSystem {
                 continue;
             }
 
-            Mesh mesh = renderer.getMesh();
+            // 优先使用 LODComponent 的 Mesh
+            Mesh mesh = null;
+            LODComponent lod = entity.getComponent(LODComponent.class)
+                .orElse(null);
+            if (lod != null && lod.getLevelCount() > 0) {
+                mesh = lod.getActiveMesh();
+            }
+            if (mesh == null) {
+                mesh = renderer.getMesh();
+            }
+
             Material material = renderer.getMaterial();
 
             if (mesh == null || material == null || mesh.isDisposed()) {
