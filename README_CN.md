@@ -19,7 +19,7 @@ maven {
 }
 ```
 
-在 `build.gradle` 中添加依赖：
+在 `dependencies.gradle`（GTNH 项目）或 `build.gradle` 中添加依赖：
 
 ```gradle
 dependencies {

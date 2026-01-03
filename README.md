@@ -19,7 +19,7 @@ maven {
 }
 ```
 
-Add dependency to `build.gradle`:
+Add dependency to `dependencies.gradle` (GTNH projects) or `build.gradle`:
 
 ```gradle
 dependencies {
