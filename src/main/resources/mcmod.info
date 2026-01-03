@@ -1,14 +1,15 @@
 [
+  "modListVersion": 2,
   {
     "modid": "${modId}",
     "name": "${modName}",
     "description": "Modern ECS-based rendering framework for Minecraft 1.7.10",
     "version": "${modVersion}",
     "mcversion": "${minecraftVersion}",
-    "url": "",
+    "url": "https://github.com/XSana/TakoRender",
     "updateUrl": "",
     "authorList": [
-      "TakoChan"
+      "XSana"
     ],
     "credits": "",
     "logoFile": "",
