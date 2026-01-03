@@ -46,7 +46,6 @@ public abstract class GameSystem {
 
     private World world;
     private boolean enabled = true;
-    private int priority = 0;
 
     /**
      * 获取此系统所属的 World。
@@ -80,18 +79,11 @@ public abstract class GameSystem {
      * 获取此系统的执行优先级。
      *
      * <p>
-     * 优先级越小越先执行。默认为 0。
+     * 优先级越小越先执行。默认为 0。子类应覆盖此方法返回固定值。
      * </p>
      */
     public int getPriority() {
-        return priority;
-    }
-
-    /**
-     * 设置此系统的执行优先级。
-     */
-    public void setPriority(int priority) {
-        this.priority = priority;
+        return 0;
     }
 
     /**

@@ -3,6 +3,7 @@ package moe.takochan.takorender.api.component;
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 import moe.takochan.takorender.api.ecs.Component;
+import moe.takochan.takorender.api.ecs.Disposable;
 import moe.takochan.takorender.core.particle.ParticleBuffer;
 import moe.takochan.takorender.core.particle.ParticleCPU;
 
@@ -27,7 +28,7 @@ import moe.takochan.takorender.core.particle.ParticleCPU;
  * </p>
  */
 @SideOnly(Side.CLIENT)
-public class ParticleBufferComponent extends Component {
+public class ParticleBufferComponent extends Component implements Disposable {
 
     /** 最大粒子数量 */
     private int maxParticles;
@@ -140,5 +141,15 @@ public class ParticleBufferComponent extends Component {
             maxParticles,
             useCPUFallback,
             initialized);
+    }
+
+    @Override
+    public void dispose() {
+        if (gpuBuffer != null) {
+            gpuBuffer.close();
+            gpuBuffer = null;
+        }
+        cpuBuffer = null;
+        initialized = false;
     }
 }

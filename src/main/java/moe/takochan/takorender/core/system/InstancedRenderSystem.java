@@ -312,13 +312,6 @@ public class InstancedRenderSystem extends GameSystem {
      * 查找活动相机
      */
     private Entity findActiveCamera() {
-        for (Entity entity : getWorld().getEntitiesWith(CameraComponent.class)) {
-            CameraComponent camera = entity.getComponent(CameraComponent.class)
-                .orElse(null);
-            if (camera != null && camera.isActive()) {
-                return entity;
-            }
-        }
-        return null;
+        return getWorld().findActiveCamera();
     }
 }

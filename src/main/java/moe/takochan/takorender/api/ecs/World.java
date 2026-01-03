@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
+import moe.takochan.takorender.api.component.CameraComponent;
 import moe.takochan.takorender.core.debug.SystemProfiler;
 
 /**
@@ -76,10 +77,21 @@ public class World {
 
     /**
      * 从 World 中移除实体。
+     *
+     * <p>
+     * 移除时会自动调用实现 {@link Disposable} 接口的 Component 的 dispose 方法。
+     * </p>
      */
     public void removeEntity(long id) {
         Entity entity = entities.remove(id);
         if (entity != null) {
+            // 清理 Disposable Component 资源
+            for (Component component : entity.getComponents()) {
+                if (component instanceof Disposable) {
+                    ((Disposable) component).dispose();
+                }
+            }
+
             // 从所有 Component 索引中移除此实体
             for (Class<? extends Component> componentClass : entity.getComponentTypes()) {
                 Set<Entity> indexed = componentIndex.get(componentClass);
@@ -357,12 +369,37 @@ public class World {
     }
 
     /**
+     * 查找当前活动的相机实体。
+     *
+     * <p>
+     * 遍历所有拥有 CameraComponent 的实体，返回第一个 active=true 的实体。
+     * </p>
+     *
+     * @return 活动相机实体，如果没有则返回 null
+     */
+    public Entity findActiveCamera() {
+        for (Entity entity : getEntitiesWith(CameraComponent.class)) {
+            CameraComponent camera = entity.getComponent(CameraComponent.class)
+                .orElse(null);
+            if (camera != null && camera.isActive()) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /**
      * 清空所有实体和系统。
+     *
+     * <p>
+     * 会自动调用实现 {@link Disposable} 接口的 Component 的 dispose 方法。
+     * </p>
      */
     public void clear() {
         for (GameSystem system : new ArrayList<>(systems)) {
             removeSystem(system);
         }
+        disposeAllEntities();
         entities.clear();
         componentIndex.clear();
     }
@@ -372,11 +409,26 @@ public class World {
      *
      * <p>
      * 用于存档退出等场景，清空所有 Entity 但保留 System。
+     * 会自动调用实现 {@link Disposable} 接口的 Component 的 dispose 方法。
      * </p>
      */
     public void clearAllEntities() {
+        disposeAllEntities();
         entities.clear();
         componentIndex.clear();
+    }
+
+    /**
+     * 释放所有 Entity 的 Disposable Component 资源（内部方法）
+     */
+    private void disposeAllEntities() {
+        for (Entity entity : entities.values()) {
+            for (Component component : entity.getComponents()) {
+                if (component instanceof Disposable) {
+                    ((Disposable) component).dispose();
+                }
+            }
+        }
     }
 
     /**
