@@ -1,8 +1,24 @@
 # TakoRender
 
+[![JitPack](https://jitpack.io/v/XSana/TakoRender.svg)](https://jitpack.io/#XSana/TakoRender)
+
 English | [中文](README_CN.md)
 
 Modern ECS-based rendering framework for Minecraft 1.7.10
+
+## Installation
+
+Add the JitPack repository and dependency to your `build.gradle`:
+
+```gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.XSana:TakoRender:0.1.2'
+}
+```
 
 ## Overview
 

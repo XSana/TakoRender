@@ -1,8 +1,24 @@
 # TakoRender
 
+[![JitPack](https://jitpack.io/v/XSana/TakoRender.svg)](https://jitpack.io/#XSana/TakoRender)
+
 [English](README.md) | 中文
 
 Minecraft 1.7.10 现代化 ECS 渲染框架
+
+## 安装
+
+在 `build.gradle` 中添加 JitPack 仓库和依赖：
+
+```gradle
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.XSana:TakoRender:0.1.2'
+}
+```
 
 ## 概述
 
