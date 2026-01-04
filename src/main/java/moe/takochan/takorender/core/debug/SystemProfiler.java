@@ -56,14 +56,23 @@ public class SystemProfiler {
     /** 当前帧总耗时 */
     private long frameTotalNanos;
 
+    /** 上一帧总耗时（报告使用，不会被下一帧覆盖） */
+    private long lastFrameTotalNanos;
+
     /** 总帧数 */
     private long totalFrames;
 
     /** 更新阶段累计耗时（当前帧） */
     private long updatePhaseNanos;
 
+    /** 上一帧更新阶段累计耗时 */
+    private long lastUpdatePhaseNanos;
+
     /** 渲染阶段累计耗时（当前帧） */
     private long renderPhaseNanos;
+
+    /** 上一帧渲染阶段累计耗时 */
+    private long lastRenderPhaseNanos;
 
     /** 当前阶段开始时间 */
     private long phaseStartNanos;
@@ -216,6 +225,9 @@ public class SystemProfiler {
             return;
         }
         frameTotalNanos = System.nanoTime() - frameStartNanos;
+        lastFrameTotalNanos = frameTotalNanos;
+        lastUpdatePhaseNanos = updatePhaseNanos;
+        lastRenderPhaseNanos = renderPhaseNanos;
         totalFrames++;
         inFrame = false;
     }
@@ -301,45 +313,45 @@ public class SystemProfiler {
     }
 
     /**
-     * 获取当前帧总耗时（纳秒）
+     * 获取上一完成帧总耗时（纳秒）
      */
     public long getFrameTotalNanos() {
-        return frameTotalNanos;
+        return lastFrameTotalNanos;
     }
 
     /**
-     * 获取当前帧总耗时（毫秒）
+     * 获取上一完成帧总耗时（毫秒）
      */
     public double getFrameTotalMs() {
-        return frameTotalNanos / 1_000_000.0;
+        return lastFrameTotalNanos / 1_000_000.0;
     }
 
     /**
-     * 获取更新阶段总耗时（纳秒）
+     * 获取上一完成帧更新阶段总耗时（纳秒）
      */
     public long getUpdatePhaseNanos() {
-        return updatePhaseNanos;
+        return lastUpdatePhaseNanos;
     }
 
     /**
-     * 获取更新阶段总耗时（毫秒）
+     * 获取上一完成帧更新阶段总耗时（毫秒）
      */
     public double getUpdatePhaseMs() {
-        return updatePhaseNanos / 1_000_000.0;
+        return lastUpdatePhaseNanos / 1_000_000.0;
     }
 
     /**
-     * 获取渲染阶段总耗时（纳秒）
+     * 获取上一完成帧渲染阶段总耗时（纳秒）
      */
     public long getRenderPhaseNanos() {
-        return renderPhaseNanos;
+        return lastRenderPhaseNanos;
     }
 
     /**
-     * 获取渲染阶段总耗时（毫秒）
+     * 获取上一完成帧渲染阶段总耗时（毫秒）
      */
     public double getRenderPhaseMs() {
-        return renderPhaseNanos / 1_000_000.0;
+        return lastRenderPhaseNanos / 1_000_000.0;
     }
 
     /**
@@ -356,6 +368,9 @@ public class SystemProfiler {
         profiles.values()
             .forEach(ProfileData::reset);
         frameTotalNanos = 0;
+        lastFrameTotalNanos = 0;
+        lastUpdatePhaseNanos = 0;
+        lastRenderPhaseNanos = 0;
         totalFrames = 0;
     }
 
