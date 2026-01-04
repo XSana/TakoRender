@@ -59,6 +59,18 @@ public class SystemProfiler {
     /** 总帧数 */
     private long totalFrames;
 
+    /** 更新阶段累计耗时（当前帧） */
+    private long updatePhaseNanos;
+
+    /** 渲染阶段累计耗时（当前帧） */
+    private long renderPhaseNanos;
+
+    /** 当前阶段开始时间 */
+    private long phaseStartNanos;
+
+    /** 是否在帧内 */
+    private boolean inFrame;
+
     /** 当前正在计时的 System */
     private GameSystem currentSystem;
     private long currentSystemStartNanos;
@@ -178,6 +190,9 @@ public class SystemProfiler {
 
     /**
      * 开始新的一帧
+     * <p>
+     * 应在每个真实渲染帧开始时调用一次（而非每个图层）。
+     * </p>
      */
     public void beginFrame() {
         if (!enabled) {
@@ -185,17 +200,64 @@ public class SystemProfiler {
         }
         frameStartNanos = System.nanoTime();
         frameTotalNanos = 0;
+        updatePhaseNanos = 0;
+        renderPhaseNanos = 0;
+        inFrame = true;
     }
 
     /**
      * 结束当前帧
+     * <p>
+     * 应在每个真实渲染帧结束时调用一次（而非每个图层）。
+     * </p>
      */
     public void endFrame() {
-        if (!enabled) {
+        if (!enabled || !inFrame) {
             return;
         }
         frameTotalNanos = System.nanoTime() - frameStartNanos;
         totalFrames++;
+        inFrame = false;
+    }
+
+    /**
+     * 开始更新阶段计时
+     */
+    public void beginUpdatePhase() {
+        if (!enabled || !inFrame) {
+            return;
+        }
+        phaseStartNanos = System.nanoTime();
+    }
+
+    /**
+     * 结束更新阶段计时
+     */
+    public void endUpdatePhase() {
+        if (!enabled || !inFrame) {
+            return;
+        }
+        updatePhaseNanos += System.nanoTime() - phaseStartNanos;
+    }
+
+    /**
+     * 开始渲染阶段计时
+     */
+    public void beginRenderPhase() {
+        if (!enabled || !inFrame) {
+            return;
+        }
+        phaseStartNanos = System.nanoTime();
+    }
+
+    /**
+     * 结束渲染阶段计时
+     */
+    public void endRenderPhase() {
+        if (!enabled || !inFrame) {
+            return;
+        }
+        renderPhaseNanos += System.nanoTime() - phaseStartNanos;
     }
 
     /**
@@ -253,6 +315,34 @@ public class SystemProfiler {
     }
 
     /**
+     * 获取更新阶段总耗时（纳秒）
+     */
+    public long getUpdatePhaseNanos() {
+        return updatePhaseNanos;
+    }
+
+    /**
+     * 获取更新阶段总耗时（毫秒）
+     */
+    public double getUpdatePhaseMs() {
+        return updatePhaseNanos / 1_000_000.0;
+    }
+
+    /**
+     * 获取渲染阶段总耗时（纳秒）
+     */
+    public long getRenderPhaseNanos() {
+        return renderPhaseNanos;
+    }
+
+    /**
+     * 获取渲染阶段总耗时（毫秒）
+     */
+    public double getRenderPhaseMs() {
+        return renderPhaseNanos / 1_000_000.0;
+    }
+
+    /**
      * 获取总帧数
      */
     public long getTotalFrames() {
@@ -280,7 +370,12 @@ public class SystemProfiler {
         StringBuilder sb = new StringBuilder();
         sb.append("=== System Profiler Report ===\n");
         sb.append(String.format("Total Frames: %d\n", totalFrames));
-        sb.append(String.format("Frame Time: %.2f ms\n\n", getFrameTotalMs()));
+        sb.append(
+            String.format(
+                "Frame Time: %.2f ms (Update: %.2f ms, Render: %.2f ms)\n\n",
+                getFrameTotalMs(),
+                getUpdatePhaseMs(),
+                getRenderPhaseMs()));
 
         sb.append(String.format("%-40s %10s %10s %10s %10s\n", "System", "Last(ms)", "Avg(ms)", "Max(ms)", "Calls"));
         sb.append(String.format("%-40s %10s %10s %10s %10s\n", "------", "-------", "------", "------", "-----"));
