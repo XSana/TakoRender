@@ -261,7 +261,7 @@ public class World {
      * @param deltaTime 距上次更新的时间（秒）
      */
     public void update(float deltaTime) {
-        profiler.beginFrame();
+        profiler.beginUpdatePhase();
         for (GameSystem system : systems) {
             if (system.isEnabled() && system.getPhase() == Phase.UPDATE) {
                 profiler.beginSystem(system);
@@ -269,7 +269,7 @@ public class World {
                 profiler.endSystem(system);
             }
         }
-        profiler.endFrame();
+        profiler.endUpdatePhase();
     }
 
     /**
@@ -300,10 +300,10 @@ public class World {
      * 应在渲染帧时调用。
      * </p>
      *
-     * @param deltaTime 距上次渲染的时间（秒）
+     * @param deltaTime 距上次渲染的时间（秒），通常为 partial tick
      */
     public void render(float deltaTime) {
-        profiler.beginFrame();
+        profiler.beginRenderPhase();
         for (GameSystem system : systems) {
             if (system.isEnabled() && system.getPhase() == Phase.RENDER) {
                 profiler.beginSystem(system);
@@ -311,7 +311,7 @@ public class World {
                 profiler.endSystem(system);
             }
         }
-        profiler.endFrame();
+        profiler.endRenderPhase();
     }
 
     /**
@@ -322,12 +322,13 @@ public class World {
      * System 可通过 {@link #getCurrentLayer()} 获取当前层进行筛选。
      * </p>
      *
-     * @param layer 渲染层
+     * @param layer     渲染层
+     * @param deltaTime 距上次渲染的时间（秒），通常为 partial tick
      */
-    public void render(Layer layer) {
+    public void render(Layer layer, float deltaTime) {
         this.currentLayer = layer;
         try {
-            render(0f);
+            render(deltaTime);
         } finally {
             this.currentLayer = null;
         }

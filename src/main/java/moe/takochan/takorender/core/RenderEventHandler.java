@@ -13,6 +13,7 @@ import moe.takochan.takorender.TakoRenderMod;
 import moe.takochan.takorender.api.ecs.Layer;
 import moe.takochan.takorender.api.ecs.World;
 import moe.takochan.takorender.api.system.LifetimeSystem;
+import moe.takochan.takorender.core.debug.SystemProfiler;
 
 /**
  * Forge 渲染事件处理器
@@ -36,8 +37,34 @@ public class RenderEventHandler {
 
     private final World world;
 
+    /** 上一次渲染的 partialTicks，用于检测新渲染帧 */
+    private float lastPartialTicks = -1f;
+
     public RenderEventHandler(World world) {
         this.world = world;
+    }
+
+    /**
+     * 检测是否是新的渲染帧，如果是则开始帧采样。
+     * <p>
+     * 通过 partialTicks 变化来检测新帧：当 partialTicks 小于上一次值时，
+     * 说明经过了一个游戏刻边界，是新的渲染帧。
+     * </p>
+     *
+     * @param partialTicks 当前 partial ticks
+     */
+    private void beginFrameIfNeeded(float partialTicks) {
+        SystemProfiler profiler = world.getProfiler();
+
+        // partialTicks 回落说明经过了游戏刻边界，是新帧
+        // 或者是首次调用
+        if (partialTicks < lastPartialTicks || lastPartialTicks < 0) {
+            // 结束上一帧（如果存在）
+            profiler.endFrame();
+            // 开始新帧
+            profiler.beginFrame();
+        }
+        lastPartialTicks = partialTicks;
     }
 
     /**
@@ -53,6 +80,8 @@ public class RenderEventHandler {
             return;
         }
 
+        beginFrameIfNeeded(event.partialTicks);
+
         // 同步当前维度
         Minecraft mc = Minecraft.getMinecraft();
         if (mc.theWorld != null) {
@@ -61,7 +90,7 @@ public class RenderEventHandler {
         }
 
         world.update(Layer.WORLD_3D, event.partialTicks);
-        world.render(Layer.WORLD_3D);
+        world.render(Layer.WORLD_3D, event.partialTicks);
     }
 
     /**
@@ -82,8 +111,10 @@ public class RenderEventHandler {
             return;
         }
 
+        beginFrameIfNeeded(event.partialTicks);
+
         world.update(Layer.HUD, event.partialTicks);
-        world.render(Layer.HUD);
+        world.render(Layer.HUD, event.partialTicks);
     }
 
     /**
@@ -99,8 +130,10 @@ public class RenderEventHandler {
             return;
         }
 
+        beginFrameIfNeeded(event.renderPartialTicks);
+
         world.update(Layer.GUI, event.renderPartialTicks);
-        world.render(Layer.GUI);
+        world.render(Layer.GUI, event.renderPartialTicks);
     }
 
     /**
